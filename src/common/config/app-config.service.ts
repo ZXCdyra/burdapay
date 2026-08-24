@@ -1,64 +1,75 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Env } from './configuration';
 
 @Injectable()
 export class AppConfig {
+  private readonly logger = new Logger(AppConfig.name);
+
   constructor(private cs: ConfigService<Env, true>) {}
 
+  private getOrDie<K extends keyof Env>(key: K): Env[K] {
+    const val = this.cs.get(key, { infer: true });
+    if (!val && val !== 0) {
+      this.logger.fatal(`FATAL: Environment variable "${String(key)}" is not set. Application cannot start.`);
+      process.exit(1);
+    }
+    return val;
+  }
+
   get nodeEnv(): string {
-    return this.cs.get('NODE_ENV', { infer: true });
+    return this.getOrDie('NODE_ENV') as string;
   }
   get isProd(): boolean {
     return this.nodeEnv === 'production';
   }
   get port(): number {
-    return this.cs.get('PORT', { infer: true });
+    return this.getOrDie('PORT') as number;
   }
   get redisUrl(): string {
-    return this.cs.get('REDIS_URL', { infer: true });
+    return this.getOrDie('REDIS_URL') as string;
   }
   get jwtSecret(): string {
-    return this.cs.get('JWT_SECRET', { infer: true });
+    return this.getOrDie('JWT_SECRET') as string;
   }
   get jwtTtl(): string {
-    return this.cs.get('JWT_TTL', { infer: true });
+    return this.getOrDie('JWT_TTL') as string;
   }
   get encryptionKey(): string {
-    return this.cs.get('APP_ENCRYPTION_KEY', { infer: true });
+    return this.getOrDie('APP_ENCRYPTION_KEY') as string;
   }
   get cardPepper(): string {
-    return this.cs.get('CARD_HASH_PEPPER', { infer: true });
+    return this.getOrDie('CARD_HASH_PEPPER') as string;
   }
   get orderTtlSeconds(): number {
-    return this.cs.get('DEFAULT_ORDER_TTL_SECONDS', { infer: true });
+    return this.getOrDie('DEFAULT_ORDER_TTL_SECONDS') as number;
   }
   get webhookAttempts(): number {
-    return this.cs.get('WEBHOOK_ATTEMPTS', { infer: true });
+    return this.getOrDie('WEBHOOK_ATTEMPTS') as number;
   }
   get webhookBackoffSeconds(): number {
-    return this.cs.get('WEBHOOK_BACKOFF_BASE_SECONDS', { infer: true });
+    return this.getOrDie('WEBHOOK_BACKOFF_BASE_SECONDS') as number;
   }
   get afWindowSeconds(): number {
-    return this.cs.get('AF_WINDOW_SECONDS', { infer: true });
+    return this.getOrDie('AF_WINDOW_SECONDS') as number;
   }
   get afMaxPerIp(): number {
-    return this.cs.get('AF_MAX_PER_IP', { infer: true });
+    return this.getOrDie('AF_MAX_PER_IP') as number;
   }
   get afMaxPerDevice(): number {
-    return this.cs.get('AF_MAX_PER_DEVICE', { infer: true });
+    return this.getOrDie('AF_MAX_PER_DEVICE') as number;
   }
   get corsOrigin(): string {
-    return this.cs.get('CORS_ORIGIN', { infer: true });
+    return this.getOrDie('CORS_ORIGIN') as string;
   }
   get throttleTtlMs(): number {
-    return this.cs.get('THROTTLE_TTL_MILLISECONDS', { infer: true });
+    return this.getOrDie('THROTTLE_TTL_MILLISECONDS') as number;
   }
   get throttleLimit(): number {
-    return this.cs.get('THROTTLE_LIMIT', { infer: true });
+    return this.getOrDie('THROTTLE_LIMIT') as number;
   }
   get prismaConnectRetries(): number {
-    return this.cs.get('PRISMA_CONNECT_RETRIES', { infer: true });
+    return this.getOrDie('PRISMA_CONNECT_RETRIES') as number;
   }
   get paymentsGateSecret(): string | null {
     return this.cs.get('PAYMENTS_GATE_SECRET', { infer: true }) ?? null;
