@@ -5,7 +5,7 @@ import { AppConfig } from '../common/config/app-config.service';
 import { CryptoUtil } from '../common/utils/crypto.util';
 import { OrdersService } from '../orders/orders.service';
 
-@Controller('payments-gate')
+@Controller(['payments-gate', 'api/webhooks'])
 export class PaymentsGateController {
   private readonly logger = new Logger(PaymentsGateController.name);
   constructor(
@@ -17,6 +17,16 @@ export class PaymentsGateController {
   @Post('webhook')
   @HttpCode(200)
   async handleWebhook(@Req() req: Request, @Res() res: Response) {
+    return this.handleIncomingWebhook(req, res);
+  }
+
+  @Post()
+  @HttpCode(200)
+  async handleRootWebhook(@Req() req: Request, @Res() res: Response) {
+    return this.handleIncomingWebhook(req, res);
+  }
+
+  private async handleIncomingWebhook(req: Request, res: Response) {
     const raw = (req as any).rawBody || '';
     const body = typeof raw === 'string' ? raw : raw.toString('utf8');
     const headerTs = req.header('X-Major-Timestamp') || req.header('x-major-timestamp');
