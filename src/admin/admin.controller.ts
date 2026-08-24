@@ -19,8 +19,11 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthUser } from '../common/types/auth-user.type';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppConfig } from '../common/config/app-config.service';
+import { CryptoUtil } from '../common/utils/crypto.util';
 import * as bcrypt from 'bcryptjs';
 import { OrdersService } from '../orders/orders.service';
+
 import { EventsService } from '../websocket/events.service';
 
 const ResolveOrderSchema = z.object({
@@ -69,6 +72,7 @@ export class AdminController {
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
     private readonly events: EventsService,
+    private readonly cfg: AppConfig,
   ) {}
 
   private CreateTraderSchema = z.object({
@@ -219,19 +223,31 @@ export class AdminController {
     const dto = this.CreateMerchantSchema.parse(body);
     const existing = await this.prisma.merchant.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Merchant with this email already exists');
-    const callbackSecret = 'init';
+    const callbackSecret = CryptoUtil.randomHex(32);
     const merchant = await this.prisma.merchant.create({
       data: {
         name: dto.name,
         email: dto.email,
         passwordHash: await bcrypt.hash(dto.password, 10),
         status: PartyStatus.ACTIVE,
-        callbackSecretEncrypted: callbackSecret,
+        callbackSecretEncrypted: CryptoUtil.encrypt(callbackSecret, this.cfg.encryptionKey),
       },
     });
-    const { passwordHash: _p, callbackSecretEncrypted: _c, ...rest } = merchant;
+    const { passwordHash: _p, ...rest } = merchant;
     this.events.emitToAdmins('user.created', { role: 'MERCHANT', ...rest });
-    return rest;
+    // Показываем callback-секрет один раз — он нужен мерчанту для проверки наших вебхуков
+    return { ...rest, callback_secret: callbackSecret };
+  }
+
+  @Post('merchants/:id/regenerate-callback-secret')
+  @ApiOperation({ summary: 'Regenerate merchant callback secret (shown once)' })
+  async regenerateCallbackSecret(@Param('id') id: string) {
+    const callbackSecret = CryptoUtil.randomHex(32);
+    await this.prisma.merchant.update({
+      where: { id },
+      data: { callbackSecretEncrypted: CryptoUtil.encrypt(callbackSecret, this.cfg.encryptionKey) },
+    });
+    return { ok: true, callback_secret: callbackSecret };
   }
 
   @Post('admins')

@@ -169,9 +169,20 @@ async function viewMerchants(v) {
         : `<button class="yellow" onclick="merchantPatch('${m.id}',{status:'SUSPENDED'})">Suspend</button>`}
       <button class="ghost" onclick="editFee('${m.id}',${m.feePercent})">Комиссия %</button>
       <button class="ghost" onclick="adjustBalance('MERCHANT','${m.id}')">Баланс ±</button>
+      <button class="ghost" onclick="regenCallbackSecret('${m.id}')">Callback-секрет ⟳</button>
     </td></tr>`))}</div>`;
 }
 async function merchantPatch(id, body) { await PF.api('/admin/merchants/' + id, { method: 'PATCH', body: JSON.stringify(body) }); PF.toast('OK'); render(); }
+async function regenCallbackSecret(id) {
+  if (!confirm('Перевыпустить callback-секрет? Старый перестанет работать.')) return;
+  const r = await PF.api(`/admin/merchants/${id}/regenerate-callback-secret`, { method: 'POST' });
+  showSecret('Новый callback-секрет (покажется один раз):', r.callback_secret);
+}
+function showSecret(title, secret) {
+  const w = window.open('', '_blank', 'width=640,height=320');
+  if (!w) { prompt(title, secret); return; }
+  w.document.write(`<body style="font-family:monospace;padding:24px"><h3>${title}</h3><p style="word-break:break-all;font-size:16px">${secret}</p><button onclick="close()">Закрыть</button></body>`);
+}
 async function editFee(id, current) {
   const fee = parseFloat(prompt('Новая комиссия мерчанта, %:', current));
   if (!isNaN(fee)) { await merchantPatch(id, { feePercent: fee }); }
@@ -216,8 +227,9 @@ async function createMerchant() {
   const name = prompt('Название мерчанта:'); if (!name) return;
   const email = prompt('Email мерчанта:'); if (!email) return;
   const password = prompt('Пароль (min 6):'); if (!password) return;
-  await PF.api('/admin/merchants', { method: 'POST', body: JSON.stringify({ name, email, password }) });
-  PF.toast('Мерчант создан'); render();
+  const r = await PF.api('/admin/merchants', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+  showSecret('Callback-секрет мерчанта (покажется один раз, сохраните!):', r.callback_secret);
+  render();
 }
 
 async function viewBlacklist(v) {
