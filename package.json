@@ -14,6 +14,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "seed": "ts-node prisma/seed.ts"
+    ,"backfill:accountids": "node scripts/backfill-accountids.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.1",

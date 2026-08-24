@@ -49,6 +49,15 @@ let tab = 'dashboard';
   if (!me) return;
   document.getElementById('app').classList.remove('hidden');
   const nav = document.getElementById('nav');
+  // quick actions in the left sidebar
+  const depBtn = document.createElement('button');
+  depBtn.textContent = 'Пополнить';
+  depBtn.onclick = () => PF.openDeposit();
+  nav.appendChild(depBtn);
+  const outBtn = document.createElement('button');
+  outBtn.textContent = 'Выйти';
+  outBtn.onclick = () => PF.logout();
+  nav.appendChild(outBtn);
   for (const t of TABS) {
     const b = document.createElement('button');
     b.textContent = LABELS[t];
@@ -90,10 +99,16 @@ async function viewDashboard(v) {
       <button class="${me.isOnline ? 'red' : 'green'}" onclick="toggleOnline(${!me.isOnline})">
         ${me.isOnline ? 'Уйти в офлайн' : 'Выйти на линию'}</button>
     </div>
-    <p class="sub" style="margin-top:14px;margin-bottom:0">
-      Методы: CARD ${me.methodCard ? '✓' : '—'} · SBP ${me.methodSbp ? '✓' : '—'}
-      &nbsp;|&nbsp; Лимиты: ${PF.money(me.minOrderAmount)}–${PF.money(me.maxOrderAmount)} ₽ · до ${me.maxConcurrentOrders} ордеров параллельно
-    </p></div>
+      <p class="sub" style="margin-top:14px;margin-bottom:0">
+        Методы: CARD ${me.methodCard ? '✓' : '—'} · SBP ${me.methodSbp ? '✓' : '—'}
+        &nbsp;|&nbsp; Лимиты: ${PF.money(me.minOrderAmount)}–${PF.money(me.maxOrderAmount)} ₽ · до ${me.maxConcurrentOrders} ордеров параллельно
+      </p></div>
+    <div class="card form-card"><div class="panel-t"><h2>Настройки лимитов</h2><button class="ghost" onclick="render()">Отмена</button></div>
+      <label>Мин. сумма <input id="limitMin" value="${Number(me.minOrderAmount)}"></label>
+      <label>Макс. сумма <input id="limitMax" value="${Number(me.maxOrderAmount)}"></label>
+      <label>Макс. параллельных <input id="limitMaxConc" value="${me.maxConcurrentOrders}"></label>
+      <div class="row"><button onclick="saveLimits()">Сохранить</button></div>
+    </div>
   <div class="card"><div class="panel-t"><h2>Последние ledger-операции</h2></div>${
     PF.table(['Время','Тип','Сумма','Баланс после'], bal.entries.slice(0, 15).map((l) => `
     <tr><td>${PF.dt(l.createdAt)}</td><td class="mono">${l.kind}</td>
@@ -167,10 +182,11 @@ async function viewRequisites(v) {
   <div id="sbpFields" class="hidden"><label>Телефон СБП<input id="rqPhone" placeholder="+79001234567"></label></div>
   <button onclick="addReq()">Добавить</button>
   <p class="sub" style="margin-top:12px;margin-bottom:0">Номер карты шифруется AES-256-GCM и никогда не показывается полностью в кабинете.</p></div>
-  <div class="card">${PF.table(['Метод','Банк','Получатель','Карта / Телефон','Активен'], list.map((r) => `
+  <div class="card">${PF.table(['Метод','Банк','Получатель','Карта / Телефон','Активен',''], list.map((r) => `
   <tr><td>${r.method}</td><td>${PF.esc(r.bankName)}</td><td>${PF.esc(r.receiverName)}</td>
   <td class="mono">${r.cardLast4 ? '**** **** **** ' + r.cardLast4 : PF.esc(r.sbpPhone || '')}</td>
-  <td class="${r.isActive ? 'st-COMPLETED' : 'st-FAILED'}">${r.isActive ? 'да' : 'нет'}</td></tr>`))}</div>`;
+  <td class="${r.isActive ? 'st-COMPLETED' : 'st-FAILED'}">${r.isActive ? 'да' : 'нет'}</td>
+  <td><button class="red" onclick="removeReq('${r.id}')">Удалить</button></td></tr>`))}</div>`;
 }
 async function addReq() {
   const m = document.getElementById('rqMethod').value;
@@ -183,6 +199,19 @@ async function addReq() {
   else body.phone = document.getElementById('rqPhone').value.trim();
   try { await PF.api('/trader/me/requisites', { method: 'POST', body: JSON.stringify(body) }); PF.toast('Реквизит добавлен'); render(); }
   catch (e) { alert(e.message); }
+}
+async function removeReq(id) {
+  if (!confirm('Удалить реквизит? Это действие деактивирует запись.')) return;
+  await PF.api('/trader/me/requisites/' + id, { method: 'DELETE' });
+  PF.toast('Реквизит деактивирован'); render();
+}
+
+async function saveLimits() {
+  const min = Number(document.getElementById('limitMin').value || 0);
+  const max = Number(document.getElementById('limitMax').value || 0);
+  const conc = Number(document.getElementById('limitMaxConc').value || 1);
+  await PF.api('/trader/me', { method: 'PATCH', body: JSON.stringify({ minOrderAmount: min, maxOrderAmount: max, maxConcurrentOrders: conc }) });
+  PF.toast('Лимиты сохранены'); render();
 }
 </script>
 </body>

@@ -33,6 +33,9 @@ const UpdateTraderSchema = z.object({
   isOnline: z.boolean().optional(),
   methodCard: z.boolean().optional(),
   methodSbp: z.boolean().optional(),
+  minOrderAmount: z.number().min(0).optional(),
+  maxOrderAmount: z.number().min(0).optional(),
+  maxConcurrentOrders: z.number().int().min(1).optional(),
 });
 
 const CreateRequisiteSchema = z.discriminatedUnion('method', [
@@ -90,6 +93,9 @@ export class TradersController {
     if (dto.isOnline !== undefined) data.isOnline = dto.isOnline;
     if (dto.methodCard !== undefined) data.methodCard = dto.methodCard;
     if (dto.methodSbp !== undefined) data.methodSbp = dto.methodSbp;
+    if (dto.minOrderAmount !== undefined) data.minOrderAmount = new Prisma.Decimal(dto.minOrderAmount);
+    if (dto.maxOrderAmount !== undefined) data.maxOrderAmount = new Prisma.Decimal(dto.maxOrderAmount);
+    if (dto.maxConcurrentOrders !== undefined) data.maxConcurrentOrders = dto.maxConcurrentOrders;
     const trader = await this.prisma.trader.update({ where: { id: user.id }, data });
     const { passwordHash: _p, ...rest } = trader;
     return rest;
@@ -152,7 +158,23 @@ export class TradersController {
         },
       };
       for (const m of merchants) {
-        try { await this.webhooks.dispatch('trader.requisite.created', payload, m.id); } catch {}
+        try {
+          await this.webhooks.dispatch('trader.requisite.created', payload, m.id);
+          // store copy for merchant so merchants have local record
+          await this.prisma.merchantRequisite.create({
+            data: {
+              merchantId: m.id,
+              traderRequisiteId: created.id,
+              traderId: trader.id,
+              method: created.method,
+              label: created.label,
+              bankName: created.bankName,
+              receiverName: created.receiverName,
+              cardLast4: created.cardLast4 ?? null,
+              sbpPhone: created.sbpPhone ?? null,
+            },
+          });
+        } catch {}
       }
       const { cardNumberEncrypted: _e, ...sel } = created as any;
       return sel;

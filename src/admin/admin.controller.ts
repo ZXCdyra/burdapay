@@ -325,7 +325,7 @@ export class AdminController {
   @Get('deposits')
   @ApiOperation({ summary: 'List deposit requests' })
   async listDeposits() {
-    return this.prisma.depositRequest.findMany({ orderBy: { createdAt: 'desc' }, take: 500 });
+    return this.prisma.depositRequest.findMany({ orderBy: { createdAt: 'desc' }, take: 500, include: { trader: { select: { accountId: true } } } });
   }
 
   @Post('deposits/:id/approve')

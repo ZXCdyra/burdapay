@@ -25,9 +25,9 @@
 
 <script src="/app.js?v=3"></script>
 <script>
-const TABS = ['dashboard', 'orders', 'merchants', 'traders', 'users', 'blacklist', 'webhooks', 'fraud'];
+const TABS = ['dashboard', 'orders', 'merchants', 'traders', 'users', 'deposits', 'blacklist', 'webhooks', 'fraud'];
 const LABELS = { dashboard:'Обзор', orders:'Ордера', merchants:'Мерчанты', traders:'Трейдеры', users:'Пользователи',
-  blacklist:'Блэклист', webhooks:'Вебхуки', fraud:'Антифрод' };
+  deposits:'Пополнения', blacklist:'Блэклист', webhooks:'Вебхуки', fraud:'Антифрод' };
 let tab = 'dashboard';
 
 (async () => {
@@ -60,10 +60,34 @@ async function render() {
     else if (tab === 'merchants') await viewMerchants(v);
     else if (tab === 'traders') await viewTraders(v);
     else if (tab === 'users') await viewUsers(v);
+    else if (tab === 'deposits') await viewDeposits(v);
     else if (tab === 'blacklist') await viewBlacklist(v);
     else if (tab === 'webhooks') await viewWebhooks(v);
     else if (tab === 'fraud') await viewFraud(v);
   } catch (err) { v.innerHTML = `<div class="empty">${PF.esc(err.message)}</div>`; }
+}
+
+async function viewDeposits(v) {
+  const list = await PF.api('/admin/deposits');
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Заявки на пополнение (${list.length})</h2>
+    <button class="ghost" onclick="render()">⟳</button></div>${PF.table(['ID','Trader','Account','Сумма','Адрес','Tx','Статус','Создан','Действия'], list.map((d) => `
+    <tr><td class="mono">${d.id.slice(-8)}</td><td class="mono">${d.traderId.slice(-6)}</td><td class="mono">${d.trader?.accountId || ''}</td>
+    <td>${PF.money(d.amount)}</td><td class="mono">${PF.esc(d.address)}</td><td class="mono">${PF.esc(d.txHash || '')}</td>
+    <td class="mono">${d.status}</td><td>${PF.dt(d.createdAt)}</td>
+    <td class="row">${d.status === 'PENDING' ? `<button class="green" onclick="approveDeposit('${d.id}')">Одобрить</button>
+      <button class="red" onclick="rejectDeposit('${d.id}')">Отклонить</button>` : ''}</td></tr>`))}</div>`;
+}
+
+async function approveDeposit(id) {
+  if (!confirm('Одобрить пополнение?')) return;
+  await PF.api('/admin/deposits/' + id + '/approve', { method: 'POST' });
+  PF.toast('Одобрено'); render();
+}
+
+async function rejectDeposit(id) {
+  const reason = prompt('Причина отклонения (опционально):') || undefined;
+  await PF.api('/admin/deposits/' + id + '/reject', { method: 'POST', body: JSON.stringify({ reason }) });
+  PF.toast('Отклонено'); render();
 }
 
 async function viewUsers(v) {
