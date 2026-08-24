@@ -20,6 +20,8 @@ services:
         sync: false
       - key: CARD_HASH_PEPPER
         sync: false
+      - key: WEBHOOK_MERCHANT_REGISTER_SECRET
+        generateValue: true
       - key: DEFAULT_ORDER_TTL_SECONDS
         value: '900'
       - key: WEBHOOK_ATTEMPTS

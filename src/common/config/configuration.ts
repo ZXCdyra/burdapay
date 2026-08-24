@@ -19,7 +19,8 @@ export const envSchema = z.object({
   THROTTLE_TTL_MILLISECONDS: z.coerce.number().int().positive().default(60000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
   PRISMA_CONNECT_RETRIES: z.coerce.number().int().positive().default(10),
-  PAYMENTS_GATE_SECRET: z.string().optional(),
+   PAYMENTS_GATE_SECRET: z.string().optional(),
+   WEBHOOK_MERCHANT_REGISTER_SECRET: z.string().min(16),
 });
 
 export type Env = z.infer<typeof envSchema>;

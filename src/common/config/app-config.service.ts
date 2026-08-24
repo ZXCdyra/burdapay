@@ -8,9 +8,9 @@ export class AppConfig {
 
   constructor(private cs: ConfigService<Env, true>) {}
 
-  private getOrDie<K extends keyof Env>(key: K): Env[K] {
+  private getEnv<K extends keyof Env>(key: K): Env[K] {
     const val = this.cs.get(key, { infer: true });
-    if (!val && val !== 0) {
+    if (val === undefined || val === null) {
       this.logger.fatal(`FATAL: Environment variable "${String(key)}" is not set. Application cannot start.`);
       process.exit(1);
     }
@@ -18,60 +18,63 @@ export class AppConfig {
   }
 
   get nodeEnv(): string {
-    return this.getOrDie('NODE_ENV') as string;
+    return this.getEnv('NODE_ENV');
   }
   get isProd(): boolean {
     return this.nodeEnv === 'production';
   }
   get port(): number {
-    return this.getOrDie('PORT') as number;
+    return this.getEnv('PORT');
   }
   get redisUrl(): string {
-    return this.getOrDie('REDIS_URL') as string;
+    return this.getEnv('REDIS_URL');
   }
   get jwtSecret(): string {
-    return this.getOrDie('JWT_SECRET') as string;
+    return this.getEnv('JWT_SECRET');
   }
   get jwtTtl(): string {
-    return this.getOrDie('JWT_TTL') as string;
+    return this.getEnv('JWT_TTL');
   }
   get encryptionKey(): string {
-    return this.getOrDie('APP_ENCRYPTION_KEY') as string;
+    return this.getEnv('APP_ENCRYPTION_KEY');
   }
   get cardPepper(): string {
-    return this.getOrDie('CARD_HASH_PEPPER') as string;
+    return this.getEnv('CARD_HASH_PEPPER');
   }
   get orderTtlSeconds(): number {
-    return this.getOrDie('DEFAULT_ORDER_TTL_SECONDS') as number;
+    return this.getEnv('DEFAULT_ORDER_TTL_SECONDS');
   }
   get webhookAttempts(): number {
-    return this.getOrDie('WEBHOOK_ATTEMPTS') as number;
+    return this.getEnv('WEBHOOK_ATTEMPTS');
   }
   get webhookBackoffSeconds(): number {
-    return this.getOrDie('WEBHOOK_BACKOFF_BASE_SECONDS') as number;
+    return this.getEnv('WEBHOOK_BACKOFF_BASE_SECONDS');
   }
   get afWindowSeconds(): number {
-    return this.getOrDie('AF_WINDOW_SECONDS') as number;
+    return this.getEnv('AF_WINDOW_SECONDS');
   }
   get afMaxPerIp(): number {
-    return this.getOrDie('AF_MAX_PER_IP') as number;
+    return this.getEnv('AF_MAX_PER_IP');
   }
   get afMaxPerDevice(): number {
-    return this.getOrDie('AF_MAX_PER_DEVICE') as number;
+    return this.getEnv('AF_MAX_PER_DEVICE');
   }
   get corsOrigin(): string {
-    return this.getOrDie('CORS_ORIGIN') as string;
+    return this.getEnv('CORS_ORIGIN');
   }
   get throttleTtlMs(): number {
-    return this.getOrDie('THROTTLE_TTL_MILLISECONDS') as number;
+    return this.getEnv('THROTTLE_TTL_MILLISECONDS');
   }
   get throttleLimit(): number {
-    return this.getOrDie('THROTTLE_LIMIT') as number;
+    return this.getEnv('THROTTLE_LIMIT');
   }
   get prismaConnectRetries(): number {
-    return this.getOrDie('PRISMA_CONNECT_RETRIES') as number;
+    return this.getEnv('PRISMA_CONNECT_RETRIES');
   }
   get paymentsGateSecret(): string | null {
     return this.cs.get('PAYMENTS_GATE_SECRET', { infer: true }) ?? null;
+  }
+  get webhookMerchantRegisterSecret(): string {
+    return this.getEnv('WEBHOOK_MERCHANT_REGISTER_SECRET');
   }
 }
