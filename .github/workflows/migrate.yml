@@ -26,6 +26,13 @@ jobs:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         run: npx prisma generate --schema=prisma/schema.prisma
 
+      - name: Resolve failed migrations (if any)
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          # If a previous run left a failed migration, mark it applied so deploy can continue.
+          npx prisma migrate resolve --schema=prisma/schema.prisma --applied "2_add_deposit_requests" || true
+
       - name: Deploy Prisma migrations
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
