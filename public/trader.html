@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PayFlow — Кабинет трейдера</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/style.css?v=3">
+<link rel="stylesheet" href="/style.css?v=4">
 <script src="/vendor/socket.io.min.js"></script>
 </head>
 <body>
@@ -15,33 +15,35 @@
     <div class="hdr-right">
       <span class="badge TRADER" id="roleBadge">TRADER</span>
       <span style="color:var(--muted);font-size:13px" id="whoami"></span>
-      <button class="ghost" onclick="PF.openDeposit()">Пополнить баланс</button>
+      <button class="ghost" onclick="PF.openDeposit()">Пополнение</button>
       <button class="ghost" onclick="PF.logout()">Выйти</button>
     </div>
   </header>
   <div class="content">
-    <nav id="nav" class="sidebar"></nav>
-    <main id="view"></main>
+    <nav class="sidebar" id="nav"></nav>
+    <main class="main" id="view"></main>
   </div>
 </div>
 <div class="toast" id="toast"></div>
 
 <!-- Deposit modal -->
-<div id="depositModal" class="hidden" style="position:fixed;right:20px;top:80px;z-index:99;min-width:360px">
+<div id="depositModal" class="hidden" style="position:fixed;right:30px;top:90px;z-index:99;min-width:400px">
   <div class="card">
     <div class="panel-t"><h2>Пополнение баланса</h2><button class="ghost" onclick="PF.closeDeposit()">Закрыть</button></div>
-    <p>Адрес TRC-20: <b>TGC6SGLQoW5szUhJhBBAfMmp7QYLnc4Lix</b></p>
+    <p style="margin-bottom:16px;color:var(--muted);font-size:13px">Адрес TRC-20: <b class="mono" style="color:var(--accent)">TGC6SGLQoW5szUhJhBBAfMmp7QYLnc4Lix</b></p>
     <label>Сумма (USD)<input id="depAmount" placeholder="50"></label>
     <label>Tx hash (опционально)<input id="depTx" placeholder="0x..."></label>
-    <div class="row"><button onclick="PF.submitDeposit()">Создать заявку</button></div>
-    <p class="sub">Минимальная сумма пополнения 50$.</p>
+    <div class="row"><button onclick="PF.submitDeposit()">Создать заявку</button>
+    <button class="ghost" onclick="PF.closeDeposit()">Отмена</button></div>
+    <p class="sub" style="margin-top:14px;margin-bottom:0">Минимальная сумма пополнения $50.</p>
   </div>
 </div>
 
-<script src="/app.js?v=3"></script>
+<script src="/app.js?v=4"></script>
 <script>
-const TABS = ['dashboard', 'orders', 'requisites'];
-const LABELS = { dashboard:'Обзор и статус', orders:'Мои ордера', requisites:'Реквизиты' };
+// Reordered: Главная -> Реквизиты -> Ордера -> Пополнение
+const TABS = ['dashboard','requisites','orders','deposits'];
+const LABELS = { dashboard:'Главная', requisites:'Реквизиты', orders:'Ордера', deposits:'Пополнение' };
 let tab = 'dashboard';
 
 (async () => {
@@ -49,15 +51,7 @@ let tab = 'dashboard';
   if (!me) return;
   document.getElementById('app').classList.remove('hidden');
   const nav = document.getElementById('nav');
-  // quick actions in the left sidebar
-  const depBtn = document.createElement('button');
-  depBtn.textContent = 'Пополнить';
-  depBtn.onclick = () => PF.openDeposit();
-  nav.appendChild(depBtn);
-  const outBtn = document.createElement('button');
-  outBtn.textContent = 'Выйти';
-  outBtn.onclick = () => PF.logout();
-  nav.appendChild(outBtn);
+  
   for (const t of TABS) {
     const b = document.createElement('button');
     b.textContent = LABELS[t];
@@ -65,9 +59,18 @@ let tab = 'dashboard';
     b.onclick = () => { tab = t; render(); };
     nav.appendChild(b);
   }
+  
+  // separator + logout at the bottom
+  nav.insertAdjacentHTML('beforeend','<div class="sep"></div>');
+  const outBtn = document.createElement('button');
+  outBtn.textContent = 'Выйти';
+  outBtn.onclick = () => PF.logout();
+  outBtn.style.marginTop = '8px';
+  nav.appendChild(outBtn);
+  
   render();
   PF.connectWS({
-    onNewOrder: (o) => { PF.toast(`🔔 Новый ордер …${o.orderId.slice(-8)} · ${o.amount} ${o.currency} · fee ${o.fee}`); if (tab === 'orders') render(); },
+    onNewOrder: (o) => { PF.toast('Новый ордер ' + o.amount + ' ' + o.currency); if (tab === 'orders') render(); },
     onExpired: () => { PF.toast('Ордер истёк'); render(); },
   });
 })();
@@ -75,41 +78,41 @@ let tab = 'dashboard';
 async function render() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   const v = document.getElementById('view');
-  v.innerHTML = '<div class="empty">Загрузка…</div>';
+  v.innerHTML = '<div class="empty">Загрузка...</div>';
   try {
     if (tab === 'dashboard') await viewDashboard(v);
     else if (tab === 'orders') await viewOrders(v);
     else if (tab === 'requisites') await viewRequisites(v);
-  } catch (err) { v.innerHTML = `<div class="empty">${PF.esc(err.message)}</div>`; }
+    else if (tab === 'deposits') await viewDeposits(v);
+  } catch (err) { v.innerHTML = '<div class="empty">' + PF.esc(err.message) + '</div>'; }
 }
 
 async function viewDashboard(v) {
   const [me, bal] = await Promise.all([PF.api('/trader/me'), PF.api('/trader/me/balance')]);
   v.innerHTML = `<div class="grid">
-    ${PF.statCard('Баланс', PF.money(me.balance) + ' ₽', Number(me.balance) < 0 ? 'var(--red)' : 'var(--green)')}
-    ${PF.statCard('Ордеров в работе', bal.lockedOrders, 'var(--yellow)')}
-    ${PF.statCard('Успешных', me.successCount, 'var(--green)')}
+    ${PF.statCard('Баланс', PF.money(me.balance) + ' руб', Number(me.balance) < 0 ? 'var(--red)' : 'var(--green)')}
+    ${PF.statCard('Активных ордеров', bal.lockedOrders, 'var(--yellow)')}
+    ${PF.statCard('Успешных ордеров', me.successCount, 'var(--green)')}
     ${PF.statCard('Провалов', me.failCount, 'var(--red)')}
   </div>
-  <div class="card form-card"><div class="panel-t"><h2>Статус на линии</h2></div>
-    <div class="row" style="align-items:center;font-size:14px">
-      <span>${me.isOnline ? '🟢 Онлайн — получаете ордера' : '⚪ Офлайн'}</span>
-      <span>· аккаунт: <b class="${me.status === 'ACTIVE' ? 'st-COMPLETED' : 'st-FAILED'}">${me.status}</b></span>
-      <span style="margin-left:8px">· ID: <b class="mono">${me.accountId ?? me.id}</b></span>
-      <button class="${me.isOnline ? 'red' : 'green'}" onclick="toggleOnline(${!me.isOnline})">
-        ${me.isOnline ? 'Уйти в офлайн' : 'Выйти на линию'}</button>
+  <div class="card" style="margin-bottom:20px"><div class="panel-t"><h2>Статус на линии</h2></div>
+    <div class="row" style="align-items:center;font-size:14px;flex-wrap:wrap">
+      <span style="color:${me.isOnline ? 'var(--green)' : 'var(--muted)'}">${me.isOnline ? 'Онлайн' : 'Офлайн'}</span>
+      <span style="margin-left:12px">аккаунт: <b class="mono">${me.accountId || me.id}</b></span>
+      <button class="${me.isOnline ? 'red' : 'green'}" onclick="toggleOnline(${!me.isOnline})" style="margin-left:12px">
+        ${me.isOnline ? 'Офлайн' : 'На линию'}</button>
     </div>
       <p class="sub" style="margin-top:14px;margin-bottom:0">
-        Методы: CARD ${me.methodCard ? '✓' : '—'} · SBP ${me.methodSbp ? '✓' : '—'}
-        &nbsp;|&nbsp; Лимиты: ${PF.money(me.minOrderAmount)}–${PF.money(me.maxOrderAmount)} ₽ · до ${me.maxConcurrentOrders} ордеров параллельно
+        Методы: CARD ${me.methodCard ? 'Активен' : 'Неактивен'} | SBP ${me.methodSbp ? 'Активен' : 'Неактивен'}
+        &nbsp;|&nbsp; Лимиты: ${PF.money(me.minOrderAmount)}-${PF.money(me.maxOrderAmount)} руб | до ${me.maxConcurrentOrders} ордеров
       </p></div>
     <div class="card form-card"><div class="panel-t"><h2>Настройки лимитов</h2><button class="ghost" onclick="render()">Отмена</button></div>
-      <label>Мин. сумма <input id="limitMin" value="${Number(me.minOrderAmount)}"></label>
-      <label>Макс. сумма <input id="limitMax" value="${Number(me.maxOrderAmount)}"></label>
-      <label>Макс. параллельных <input id="limitMaxConc" value="${me.maxConcurrentOrders}"></label>
+      <label>Мин. сумма<input id="limitMin" value="${Number(me.minOrderAmount)}"></label>
+      <label>Макс. сумма<input id="limitMax" value="${Number(me.maxOrderAmount)}"></label>
+      <label>Макс. параллельных<input id="limitMaxConc" value="${me.maxConcurrentOrders}"></label>
       <div class="row"><button onclick="saveLimits()">Сохранить</button></div>
     </div>
-  <div class="card"><div class="panel-t"><h2>Последние ledger-операции</h2></div>${
+  <div class="card"><div class="panel-t"><h2>Последние операции</h2></div>${
     PF.table(['Время','Тип','Сумма','Баланс после'], bal.entries.slice(0, 15).map((l) => `
     <tr><td>${PF.dt(l.createdAt)}</td><td class="mono">${l.kind}</td>
     <td style="color:${Number(l.amount) >= 0 ? 'var(--green)' : 'var(--red)'}">${Number(l.amount).toLocaleString('ru')}</td>
@@ -123,8 +126,8 @@ async function toggleOnline(on) {
 async function viewOrders(v) {
   const list = await PF.api('/trader/orders');
   v.innerHTML = `<div class="card"><div class="panel-t"><h2>Мои ордера (${list.length})</h2>
-    <button class="ghost" onclick="render()">⟳ Обновить</button></div>${
-    PF.table(['ID','Тип','Метод','Сумма ₽','Fee ₽','Статус','Истекает','Действия'], list.map((o) => {
+    <button class="ghost" onclick="render()">Обновить</button></div>${
+    PF.table(['ID','Тип','Метод','Сумма','Fee','Статус','Истекает','Действия'], list.map((o) => {
       let actions = '—';
       if (o.status === 'PENDING') {
         const acceptWindow = (new Date(o.createdAt)).getTime() + 10*60*1000;
@@ -140,7 +143,7 @@ async function viewOrders(v) {
                    <button class="red" onclick="tDecline('${o.id}')">Отказаться</button>`;
       else if (o.status === 'ASSIGNED' && o.type === 'WITHDRAWAL')
         actions = `<button class="green" onclick="tAction('${o.id}','mark-paid')">Выплачено</button>
-                   <button class="ghost" onclick="showPayout('${o.id}', this)">Реквизиты ▾</button>`;
+                   <button class="ghost" onclick="showPayout('${o.id}', this)">Реквизиты</button>`;
       return `<tr><td class="mono">${o.id.slice(-8)}</td><td>${o.type}</td><td>${o.method}</td>
       <td>${PF.money(o.amount)}</td><td>${o.feeTrader ?? o.fee}</td>
       <td class="st-${o.status}"><b>${o.status}</b></td><td>${PF.dt(o.expiresAt)}</td>
@@ -176,13 +179,13 @@ async function viewRequisites(v) {
     document.getElementById('cardFields').classList.toggle('hidden', this.value !== 'CARD');
     document.getElementById('sbpFields').classList.toggle('hidden', this.value !== 'SBP')">
     <option value="CARD">CARD</option><option value="SBP">SBP</option></select></label>
-  <label>Банк<input id="rqBank" placeholder="Sberbank / T-Bank / Alpha-Bank…"></label>
+  <label>Банк<input id="rqBank" placeholder="Sberbank / T-Bank / Alpha-Bank"></label>
   <label>Получатель<input id="rqReceiver" placeholder="IVAN IVANOV"></label>
   <div id="cardFields"><label>Номер карты<input id="rqCard" placeholder="4276XXXXXXXXXXXX"></label></div>
   <div id="sbpFields" class="hidden"><label>Телефон СБП<input id="rqPhone" placeholder="+79001234567"></label></div>
   <button onclick="addReq()">Добавить</button>
-  <p class="sub" style="margin-top:12px;margin-bottom:0">Номер карты шифруется AES-256-GCM и никогда не показывается полностью в кабинете.</p></div>
-  <div class="card">${PF.table(['Метод','Банк','Получатель','Карта / Телефон','Активен',''], list.map((r) => `
+  <p class="sub" style="margin-top:12px;margin-bottom:0">Номер карты шифруется AES-256-GCM и никогда не показывается полностью.</p></div>
+  <div class="card">${PF.table(['Метод','Банк','Получатель','Данные','Активен',''], list.map((r) => `
   <tr><td>${r.method}</td><td>${PF.esc(r.bankName)}</td><td>${PF.esc(r.receiverName)}</td>
   <td class="mono">${r.cardLast4 ? '**** **** **** ' + r.cardLast4 : PF.esc(r.sbpPhone || '')}</td>
   <td class="${r.isActive ? 'st-COMPLETED' : 'st-FAILED'}">${r.isActive ? 'да' : 'нет'}</td>
@@ -201,9 +204,15 @@ async function addReq() {
   catch (e) { alert(e.message); }
 }
 async function removeReq(id) {
-  if (!confirm('Удалить реквизит? Это действие деактивирует запись.')) return;
+  if (!confirm('Удалить реквизит?')) return;
   await PF.api('/trader/me/requisites/' + id, { method: 'DELETE' });
-  PF.toast('Реквизит деактивирован'); render();
+  PF.toast('Реквизит удалён'); render();
+}
+
+async function viewDeposits(v) {
+  document.getElementById('depositModal').classList.remove('hidden');
+  PF.openDeposit = () => {};
+  PF.closeDeposit = () => { document.getElementById('depositModal').classList.add('hidden'); PF.openDeposit = () => document.getElementById('depositModal').classList.remove('hidden'); };
 }
 
 async function saveLimits() {

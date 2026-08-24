@@ -18,8 +18,10 @@
       <button class="ghost" onclick="PF.logout()">Выйти</button>
     </div>
   </header>
-  <nav id="nav"></nav>
-  <main id="view"></main>
+  <div class="content">
+    <nav class="sidebar" id="nav"></nav>
+    <main class="main" id="view"></main>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -190,7 +192,7 @@ async function viewTraders(v) {
     PF.table(['Имя','Email','Статус','Online','CARD / SBP','Fee %','Баланс ₽','Success/Fail','Действия'], list.map((t) => `
     <tr><td>${PF.esc(t.displayName)}</td><td>${PF.esc(t.email)}</td>
     <td class="${t.status === 'ACTIVE' ? 'st-COMPLETED' : 'st-FAILED'}"><b>${t.status}</b></td>
-    <td>${t.isOnline ? '🟢' : '⚪'}</td>
+    <td>${t.isOnline ? 'online' : 'offline'}</td>
     <td>${t.methodCard ? '✓' : '—'} / ${t.methodSbp ? '✓' : '—'}</td>
     <td>${t.feePercent}</td><td>${PF.money(t.balance)}</td>
     <td class="mono">${t.successCount}/${t.failCount}</td>
