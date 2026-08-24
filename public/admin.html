@@ -169,10 +169,16 @@ async function viewMerchants(v) {
         : `<button class="yellow" onclick="merchantPatch('${m.id}',{status:'SUSPENDED'})">Suspend</button>`}
       <button class="ghost" onclick="editFee('${m.id}',${m.feePercent})">Комиссия %</button>
       <button class="ghost" onclick="adjustBalance('MERCHANT','${m.id}')">Баланс ±</button>
+      <button class="ghost" onclick="editWebhookUrl('${m.id}', '${PF.esc(m.webhookUrl || '')}')">Webhook URL</button>
       <button class="ghost" onclick="regenCallbackSecret('${m.id}')">Callback-секрет ⟳</button>
     </td></tr>`))}</div>`;
 }
 async function merchantPatch(id, body) { await PF.api('/admin/merchants/' + id, { method: 'PATCH', body: JSON.stringify(body) }); PF.toast('OK'); render(); }
+async function editWebhookUrl(id, current) {
+  const url = prompt('Webhook URL мерчанта (куда слать события о заказах):', current);
+  if (url === null) return;
+  await merchantPatch(id, { webhookUrl: url || null });
+}
 async function regenCallbackSecret(id) {
   if (!confirm('Перевыпустить callback-секрет? Старый перестанет работать.')) return;
   const r = await PF.api(`/admin/merchants/${id}/regenerate-callback-secret`, { method: 'POST' });
