@@ -60,4 +60,7 @@ export class AppConfig {
   get prismaConnectRetries(): number {
     return this.cs.get('PRISMA_CONNECT_RETRIES', { infer: true });
   }
+  get paymentsGateSecret(): string | null {
+    return this.cs.get('PAYMENTS_GATE_SECRET', { infer: true }) ?? null;
+  }
 }

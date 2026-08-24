@@ -19,6 +19,7 @@ export const envSchema = z.object({
   THROTTLE_TTL_MILLISECONDS: z.coerce.number().int().positive().default(60000),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
   PRISMA_CONNECT_RETRIES: z.coerce.number().int().positive().default(10),
+  PAYMENTS_GATE_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
