@@ -113,28 +113,30 @@ export class AuthService {
 
   async me(user: { id: string; role: UserRole }): Promise<Record<string, unknown>> {
     switch (user.role) {
-      case UserRole.MERCHANT:
+      case UserRole.MERCHANT: {
+        const merchant = await this.prisma.merchant.findUnique({ where: { id: user.id } });
+        if (!merchant) throw new UnauthorizedException('Merchant not found');
         return {
-          ...this.sanitize(
-            await this.prisma.merchant.findUniqueOrThrow({ where: { id: user.id } }),
-            ['passwordHash', 'callbackSecretEncrypted'],
-          ),
+          ...this.sanitize(merchant, ['passwordHash', 'callbackSecretEncrypted']),
           role: UserRole.MERCHANT,
         };
-      case UserRole.TRADER:
+      }
+      case UserRole.TRADER: {
+        const trader = await this.prisma.trader.findUnique({ where: { id: user.id } });
+        if (!trader) throw new UnauthorizedException('Trader not found');
         return {
-          ...this.sanitize(await this.prisma.trader.findUniqueOrThrow({ where: { id: user.id } }), [
-            'passwordHash',
-          ]),
+          ...this.sanitize(trader, ['passwordHash']),
           role: UserRole.TRADER,
         };
-      default:
+      }
+      default: {
+        const admin = await this.prisma.adminUser.findUnique({ where: { id: user.id } });
+        if (!admin) throw new UnauthorizedException('Admin not found');
         return {
-          ...this.sanitize(await this.prisma.adminUser.findUniqueOrThrow({ where: { id: user.id } }), [
-            'passwordHash',
-          ]),
+          ...this.sanitize(admin, ['passwordHash']),
           role: UserRole.ADMIN,
         };
+      }
     }
   }
 
