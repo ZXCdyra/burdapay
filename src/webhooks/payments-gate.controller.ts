@@ -31,12 +31,25 @@ export class PaymentsGateController {
 
     const txId = payload?.object?.uuid ?? '';
     const externalId = payload?.object?.external_id ?? null;
+    const webhookSecretKey = payload?.secret_key ?? null;
 
-    // Determine secret: prefer configured PAYMENTS_GATE_SECRET, otherwise try merchant's callback secret
+    // Timestamp tolerance: 5 minutes
+    const ts = headerTs.toString();
+    const tsNum = parseInt(ts, 10);
+    const now = Math.floor(Date.now() / 1000);
+    if (isNaN(tsNum) || Math.abs(now - tsNum) > 300) {
+      this.logger.warn(`Timestamp out of range: ts=${ts}, now=${now}`);
+      return res.status(401).send('Invalid timestamp');
+    }
+
+    // Build secret candidates
     const globalSecret = this.cfg.paymentsGateSecret || null;
     const candidates: string[] = [];
     if (globalSecret) candidates.push(globalSecret);
-    if (externalId) {
+    if (webhookSecretKey) candidates.push(webhookSecretKey);
+
+    // Try to resolve order to get merchant secret
+    if (!candidates.length || !externalId) {
       try {
         const order = await this.prisma.order.findFirst({ where: { merchantOrderId: externalId }, include: { merchant: true } });
         if (order?.merchant?.callbackSecretEncrypted) {
@@ -53,12 +66,12 @@ export class PaymentsGateController {
     }
 
     // verify signature: expected = hmac_sha256(secret, `${timestamp}.${txId}.${rawBody}`)
-    const ts = headerTs.toString();
     const sig = headerSig.toString();
+    const dataToSign = `${ts}.${txId}.${body}`;
     let ok = false;
     for (const secret of candidates) {
       try {
-        const expected = CryptoUtil.hmacSha256Hex(secret, `${ts}.${txId}.${body}`);
+        const expected = CryptoUtil.hmacSha256Hex(secret, dataToSign);
         if (CryptoUtil.timingSafeEqual(expected, sig)) { ok = true; break; }
       } catch {}
     }
@@ -77,12 +90,16 @@ export class PaymentsGateController {
       return res.status(200).send('ok');
     }
 
+    const eventType = payload?.type || '';
     const status = (payload?.object?.status || '').toUpperCase();
     try {
-      if (status === 'PAID' || status === 'SETTLED' || status === 'SUCCESS') {
+      if (eventType === 'payment.success' || status === 'PAID' || status === 'SETTLED' || status === 'SUCCESS') {
         await this.orders.adminResolve(order.id, 'complete', 'payments-gate');
-      } else if (status === 'FAILED' || status === 'CANCELLED' || status === 'REVOKED') {
+      } else if (eventType === 'payment.failed' || eventType === 'payment.cancelled' ||
+                 status === 'FAILED' || status === 'CANCELLED' || status === 'REVOKED') {
         await this.orders.adminResolve(order.id, 'cancel', 'payments-gate', `external status ${status}`);
+      } else if (status) {
+        this.logger.log(`Ignored unknown status ${status} for order ${order.id}`);
       }
     } catch (e) {
       this.logger.error('Failed to resolve order from payments-gate webhook: ' + (e as Error).message);
