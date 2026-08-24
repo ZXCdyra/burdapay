@@ -124,6 +124,8 @@ model Trader {
   minOrderAmount      Decimal     @default(100) @db.Decimal(18, 2)
   maxOrderAmount      Decimal     @default(150000) @db.Decimal(18, 2)
   maxConcurrentOrders Int         @default(3)
+  dealsPerDay         Int         @default(100)
+  dealCooldownSeconds Int         @default(30)
   lockedOrders        Int         @default(0)
   balance             Decimal     @default(0) @db.Decimal(18, 2)
   successCount        Int         @default(0)
@@ -145,6 +147,9 @@ model DepositRequest {
   address   String
   txHash    String?
   status    String   @default("PENDING")
+  adminNote String?
+  processedBy String?
+  processedAt DateTime?
   createdAt DateTime @default(now())
 
   trader Trader @relation(fields: [traderId], references: [id], onDelete: Cascade)

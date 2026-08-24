@@ -36,6 +36,8 @@ const UpdateTraderSchema = z.object({
   minOrderAmount: z.number().min(0).optional(),
   maxOrderAmount: z.number().min(0).optional(),
   maxConcurrentOrders: z.number().int().min(1).optional(),
+  dealsPerDay: z.number().int().min(0).optional(),
+  dealCooldownSeconds: z.number().int().min(0).optional(),
 });
 
 const CreateRequisiteSchema = z.discriminatedUnion('method', [
@@ -96,6 +98,8 @@ export class TradersController {
     if (dto.minOrderAmount !== undefined) data.minOrderAmount = new Prisma.Decimal(dto.minOrderAmount);
     if (dto.maxOrderAmount !== undefined) data.maxOrderAmount = new Prisma.Decimal(dto.maxOrderAmount);
     if (dto.maxConcurrentOrders !== undefined) data.maxConcurrentOrders = dto.maxConcurrentOrders;
+    if (dto.dealsPerDay !== undefined) data.dealsPerDay = dto.dealsPerDay;
+    if (dto.dealCooldownSeconds !== undefined) data.dealCooldownSeconds = dto.dealCooldownSeconds;
     const trader = await this.prisma.trader.update({ where: { id: user.id }, data });
     const { passwordHash: _p, ...rest } = trader;
     return rest;

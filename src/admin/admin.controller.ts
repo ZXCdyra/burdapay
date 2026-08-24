@@ -330,14 +330,14 @@ export class AdminController {
 
   @Post('deposits/:id/approve')
   @ApiOperation({ summary: 'Approve deposit request' })
-  async approveDeposit(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+  async approveDeposit(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() body?: any) {
     const d = await this.prisma.depositRequest.findUnique({ where: { id } });
     if (!d) throw new Error('Deposit request not found');
     if (d.status !== 'PENDING') return { ok: false, status: d.status };
     return this.prisma.$transaction(async (tx) => {
       const trader = await tx.trader.findUniqueOrThrow({ where: { id: d.traderId } });
       const amount = d.amount;
-      const updated = await tx.depositRequest.update({ where: { id }, data: { status: 'APPROVED' } });
+      const updated = await tx.depositRequest.update({ where: { id }, data: { status: 'APPROVED', processedBy: user.email, processedAt: new Date(), adminNote: body?.reason ?? null } });
       await tx.trader.update({ where: { id: trader.id }, data: { balance: { increment: amount } } });
       await tx.ledgerEntry.create({
         data: {
@@ -356,11 +356,11 @@ export class AdminController {
 
   @Post('deposits/:id/reject')
   @ApiOperation({ summary: 'Reject deposit request' })
-  async rejectDeposit(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+  async rejectDeposit(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body() body?: any) {
     const d = await this.prisma.depositRequest.findUnique({ where: { id } });
     if (!d) throw new Error('Deposit request not found');
     if (d.status !== 'PENDING') return { ok: false, status: d.status };
-    const updated = await this.prisma.depositRequest.update({ where: { id }, data: { status: 'REJECTED' } });
+    const updated = await this.prisma.depositRequest.update({ where: { id }, data: { status: 'REJECTED', processedBy: user.email, processedAt: new Date(), adminNote: body?.reason ?? null } });
     this.events.emitToAdmins('deposit.request.updated', { id: updated.id, status: 'REJECTED' });
     return { ok: true, updated };
   }
