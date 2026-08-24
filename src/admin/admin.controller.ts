@@ -322,6 +322,49 @@ export class AdminController {
     return this.prisma.fraudEvent.findMany({ orderBy: { createdAt: 'desc' }, take: 200 });
   }
 
+  @Get('deposits')
+  @ApiOperation({ summary: 'List deposit requests' })
+  async listDeposits() {
+    return this.prisma.depositRequest.findMany({ orderBy: { createdAt: 'desc' }, take: 500 });
+  }
+
+  @Post('deposits/:id/approve')
+  @ApiOperation({ summary: 'Approve deposit request' })
+  async approveDeposit(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    const d = await this.prisma.depositRequest.findUnique({ where: { id } });
+    if (!d) throw new Error('Deposit request not found');
+    if (d.status !== 'PENDING') return { ok: false, status: d.status };
+    return this.prisma.$transaction(async (tx) => {
+      const trader = await tx.trader.findUniqueOrThrow({ where: { id: d.traderId } });
+      const amount = d.amount;
+      const updated = await tx.depositRequest.update({ where: { id }, data: { status: 'APPROVED' } });
+      await tx.trader.update({ where: { id: trader.id }, data: { balance: { increment: amount } } });
+      await tx.ledgerEntry.create({
+        data: {
+          partyType: 'TRADER',
+          partyId: trader.id,
+          kind: 'BALANCE_ADJUSTMENT',
+          amount,
+          balanceAfter: trader.balance.add(amount),
+          memo: `Deposit approved by ${user.email}`,
+        },
+      });
+      this.events.emitToAdmins('deposit.request.updated', { id: updated.id, status: 'APPROVED' });
+      return { ok: true, updated };
+    });
+  }
+
+  @Post('deposits/:id/reject')
+  @ApiOperation({ summary: 'Reject deposit request' })
+  async rejectDeposit(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    const d = await this.prisma.depositRequest.findUnique({ where: { id } });
+    if (!d) throw new Error('Deposit request not found');
+    if (d.status !== 'PENDING') return { ok: false, status: d.status };
+    const updated = await this.prisma.depositRequest.update({ where: { id }, data: { status: 'REJECTED' } });
+    this.events.emitToAdmins('deposit.request.updated', { id: updated.id, status: 'REJECTED' });
+    return { ok: true, updated };
+  }
+
   @Get('webhook-deliveries')
   webhookDeliveries(@Query('merchantId') merchantId?: string) {
     return this.prisma.webhookDelivery.findMany({

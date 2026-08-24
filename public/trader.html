@@ -15,13 +15,28 @@
     <div class="hdr-right">
       <span class="badge TRADER" id="roleBadge">TRADER</span>
       <span style="color:var(--muted);font-size:13px" id="whoami"></span>
+      <button class="ghost" onclick="PF.openDeposit()">Пополнить баланс</button>
       <button class="ghost" onclick="PF.logout()">Выйти</button>
     </div>
   </header>
-  <nav id="nav"></nav>
-  <main id="view"></main>
+  <div class="content">
+    <nav id="nav" class="sidebar"></nav>
+    <main id="view"></main>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
+
+<!-- Deposit modal -->
+<div id="depositModal" class="hidden" style="position:fixed;right:20px;top:80px;z-index:99;min-width:360px">
+  <div class="card">
+    <div class="panel-t"><h2>Пополнение баланса</h2><button class="ghost" onclick="PF.closeDeposit()">Закрыть</button></div>
+    <p>Адрес TRC-20: <b>TGC6SGLQoW5szUhJhBBAfMmp7QYLnc4Lix</b></p>
+    <label>Сумма (USD)<input id="depAmount" placeholder="50"></label>
+    <label>Tx hash (опционально)<input id="depTx" placeholder="0x..."></label>
+    <div class="row"><button onclick="PF.submitDeposit()">Создать заявку</button></div>
+    <p class="sub">Минимальная сумма пополнения 50$.</p>
+  </div>
+</div>
 
 <script src="/app.js?v=3"></script>
 <script>
@@ -71,6 +86,7 @@ async function viewDashboard(v) {
     <div class="row" style="align-items:center;font-size:14px">
       <span>${me.isOnline ? '🟢 Онлайн — получаете ордера' : '⚪ Офлайн'}</span>
       <span>· аккаунт: <b class="${me.status === 'ACTIVE' ? 'st-COMPLETED' : 'st-FAILED'}">${me.status}</b></span>
+      <span style="margin-left:8px">· ID: <b class="mono">${me.accountId ?? me.id}</b></span>
       <button class="${me.isOnline ? 'red' : 'green'}" onclick="toggleOnline(${!me.isOnline})">
         ${me.isOnline ? 'Уйти в офлайн' : 'Выйти на линию'}</button>
     </div>

@@ -51,6 +51,8 @@ const PF = {
       PF.socket.on('order.new', (o) => handlers.onNewOrder && handlers.onNewOrder(o));
       PF.socket.on('order.expired', (o) => handlers.onExpired && handlers.onExpired(o));
       PF.socket.on('user.created', (u) => handlers.onUserCreated && handlers.onUserCreated(u));
+      PF.socket.on('deposit.request.created', (d) => PF.toast('Новая заявка на пополнение ' + (d.amount || '')));
+      PF.socket.on('deposit.request.updated', (d) => PF.toast('Заявка обновлена: ' + d.status));
       return PF.socket;
     } catch (e) { console.warn('WS init failed:', e); return null; }
   },
@@ -61,6 +63,19 @@ const PF = {
     t.style.display = 'block';
     clearTimeout(t._tm);
     t._tm = setTimeout(() => (t.style.display = 'none'), ms);
+  },
+
+  /* Deposit UI helpers */
+  openDeposit() { document.getElementById('depositModal').classList.remove('hidden'); },
+  closeDeposit() { document.getElementById('depositModal').classList.add('hidden'); },
+  async submitDeposit() {
+    const a = Number(document.getElementById('depAmount').value || 0);
+    const tx = document.getElementById('depTx').value.trim() || undefined;
+    try {
+      await PF.api('/trader/me/deposits', { method: 'POST', body: JSON.stringify({ amount: a, txHash: tx }) });
+      PF.toast('Заявка создана');
+      PF.closeDeposit();
+    } catch (e) { alert(e.message); }
   },
 
   esc(s) {

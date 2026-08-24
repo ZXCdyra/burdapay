@@ -15,6 +15,7 @@ import { PartyStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { AppConfig } from '../common/config/app-config.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { EventsService } from '../websocket/events.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -61,6 +62,7 @@ export class TradersController {
     private readonly prisma: PrismaService,
     private readonly cfg: AppConfig,
     private readonly webhooks: WebhooksService,
+    private readonly events: EventsService,
   ) {}
 
   private async requireTrader(userId: string) {
@@ -212,5 +214,34 @@ export class TradersController {
     if (!req) throw new NotFoundException('Requisite not found');
     await this.prisma.traderRequisite.update({ where: { id: reqId }, data: { isActive: false } });
     return { deactivated: true };
+  }
+
+  @Get('me/deposits')
+  @ApiOperation({ summary: 'List trader deposit requests' })
+  async listDeposits(@CurrentUser() user: AuthUser) {
+    await this.requireTrader(user.id);
+    return this.prisma.depositRequest.findMany({ where: { traderId: user.id }, orderBy: { createdAt: 'desc' } });
+  }
+
+  @Post('me/deposits')
+  @ApiOperation({ summary: 'Create deposit request (TRC-20)' })
+  async createDeposit(@CurrentUser() user: AuthUser, @Body() body: any) {
+    const trader = await this.requireTrader(user.id);
+    const amount = Number(body.amount ?? 0);
+    const MIN = 50;
+    if (isNaN(amount) || amount < MIN) throw new ForbiddenException(`Минимальная сумма пополнения ${MIN}$`);
+    const addr = 'TRC-20 TGC6SGLQoW5szUhJhBBAfMmp7QYLnc4Lix';
+    const created = await this.prisma.depositRequest.create({
+      data: {
+        traderId: trader.id,
+        amount: new Prisma.Decimal(amount),
+        currency: 'USD',
+        address: addr,
+        txHash: body.txHash ?? null,
+      },
+    });
+    // notify admins via websocket
+    try { this.events.emitToAdmins('deposit.request.created', { id: created.id, traderId: trader.id, accountId: trader.accountId, amount: created.amount.toFixed(2), currency: created.currency, address: created.address, createdAt: created.createdAt }); } catch {}
+    return created;
   }
 }

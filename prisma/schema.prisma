@@ -66,6 +66,7 @@ enum WebhookStatus {
 
 model Merchant {
   id                      String      @id @default(cuid())
+  accountId               String      @unique @default(uuid())
   name                    String
   email                   String      @unique
   passwordHash            String
@@ -102,6 +103,7 @@ model ApiKey {
 
 model AdminUser {
   id           String   @id @default(cuid())
+  accountId    String   @unique @default(uuid())
   email        String   @unique
   passwordHash String
   name         String   @default("Admin")
@@ -110,6 +112,7 @@ model AdminUser {
 
 model Trader {
   id                  String      @id @default(cuid())
+  accountId           String      @unique @default(uuid())
   email               String      @unique
   passwordHash        String
   displayName         String
@@ -131,6 +134,21 @@ model Trader {
   requisites    TraderRequisite[]
   orders        Order[]
   merchantRequisites MerchantRequisite[]
+}
+
+model DepositRequest {
+  id        String   @id @default(cuid())
+  traderId  String
+  amount    Decimal  @db.Decimal(18,2)
+  currency  String   @default("USD")
+  address   String
+  txHash    String?
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+
+  trader Trader @relation(fields: [traderId], references: [id], onDelete: Cascade)
+
+  @@index([traderId, status])
 }
 
 model TraderRequisite {

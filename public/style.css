@@ -28,6 +28,12 @@ nav{display:flex;gap:4px;padding:10px 16px;border-bottom:1px solid var(--border)
 nav button{background:transparent;color:var(--muted)}
 nav button.active{background:var(--panel2);color:var(--text)}
 main{padding:24px;max-width:1200px;margin:0 auto}
+
+/* Sidebar layout for trader */
+.content{display:flex;gap:18px;max-width:1200px;margin:0 auto}
+.sidebar{width:220px;display:flex;flex-direction:column;gap:6px;padding:12px;border-right:1px solid var(--border);height:calc(100vh - 72px);position:sticky;top:64px}
+.sidebar button{background:transparent;color:var(--muted);text-align:left;padding:10px;border-radius:8px}
+.sidebar button.active{background:var(--panel2);color:var(--text)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:22px}
 .stat h3{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
 .stat .val{font-size:25px;font-weight:800}
