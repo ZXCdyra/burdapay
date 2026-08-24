@@ -134,6 +134,7 @@ model Trader {
   requisites    TraderRequisite[]
   orders        Order[]
   merchantRequisites MerchantRequisite[]
+  depositRequests DepositRequest[]
 }
 
 model DepositRequest {
