@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PaymentMethod {
+  CARD
+  SBP
+}
+
+enum OrderType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+enum OrderStatus {
+  PENDING
+  ASSIGNED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+  FAILED
+  DISPUTED
+}
+
+enum PartyStatus {
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum BlacklistKind {
+  IP
+  CARD_HASH
+  DEVICE_ID
+}
+
+enum LedgerPartyType {
+  MERCHANT
+  TRADER
+  PLATFORM
+}
+
+enum LedgerKind {
+  ORDER_CREDIT
+  ORDER_DEBIT
+  FEE
+  REFUND
+  BALANCE_ADJUSTMENT
+}
+
+enum WebhookStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model Merchant {
+  id                      String      @id @default(cuid())
+  name                    String
+  email                   String      @unique
+  passwordHash            String
+  status                  PartyStatus @default(ACTIVE)
+  feePercent              Decimal     @default(3.00) @db.Decimal(5, 2)
+  balance                 Decimal     @default(0) @db.Decimal(18, 2)
+  webhookUrl              String?
+  callbackSecretEncrypted String
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  apiKeys           ApiKey[]
+  orders            Order[]
+  webhookDeliveries WebhookDelivery[]
+  merchantRequisites MerchantRequisite[]
+}
+
+model ApiKey {
+  id               String       @id @default(cuid())
+  merchantId       String
+  name             String       @default("default")
+  publicKey        String       @unique
+  secretEncrypted  String
+  secretPrefix     String
+  status           ApiKeyStatus @default(ACTIVE)
+  lastUsedAt       DateTime?
+  createdAt        DateTime     @default(now())
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+
+  @@index([merchantId])
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String   @default("Admin")
+  createdAt    DateTime @default(now())
+}
+
+model Trader {
+  id                  String      @id @default(cuid())
+  email               String      @unique
+  passwordHash        String
+  displayName         String
+  status              PartyStatus @default(SUSPENDED)
+  isOnline            Boolean     @default(false)
+  methodCard          Boolean     @default(true)
+  methodSbp           Boolean     @default(true)
+  feePercent          Decimal     @default(2.50) @db.Decimal(5, 2)
+  minOrderAmount      Decimal     @default(100) @db.Decimal(18, 2)
+  maxOrderAmount      Decimal     @default(150000) @db.Decimal(18, 2)
+  maxConcurrentOrders Int         @default(3)
+  lockedOrders        Int         @default(0)
+  balance             Decimal     @default(0) @db.Decimal(18, 2)
+  successCount        Int         @default(0)
+  failCount           Int         @default(0)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  requisites    TraderRequisite[]
+  orders        Order[]
+  merchantRequisites MerchantRequisite[]
+}
+
+model TraderRequisite {
+  id                   String        @id @default(cuid())
+  traderId             String
+  method               PaymentMethod
+  label                String?
+  bankName             String
+  receiverName         String
+  cardNumberEncrypted  String?
+  cardLast4            String?
+  sbpPhone             String?
+  isActive             Boolean       @default(true)
+  createdAt            DateTime      @default(now())
+
+  trader Trader @relation(fields: [traderId], references: [id], onDelete: Cascade)
+
+  merchantRequisites MerchantRequisite[]
+
+  @@index([traderId, method])
+}
+
+// Copy of trader requisites stored per-merchant so merchants can show available
+// payout options and have a local record (created when trader adds a requisite).
+model MerchantRequisite {
+  id                String        @id @default(cuid())
+  merchantId        String
+  traderRequisiteId String
+  traderId          String
+  method            PaymentMethod
+  label             String?
+  bankName          String
+  receiverName      String
+  cardLast4         String?
+  sbpPhone          String?
+  createdAt         DateTime      @default(now())
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  trader Trader @relation(fields: [traderId], references: [id], onDelete: Cascade)
+  traderRequisite TraderRequisite @relation(fields: [traderRequisiteId], references: [id], onDelete: Cascade)
+  @@index([merchantId, traderId])
+  @@index([traderRequisiteId])
+}
+
+model Order {
+  id                String        @id @default(cuid())
+  merchantId        String
+  traderId          String?
+  type              OrderType
+  method            PaymentMethod
+  amount            Decimal       @db.Decimal(18, 2)
+  currency          String        @default("RUB")
+  feeMerchant       Decimal       @default(0) @db.Decimal(18, 2)
+  feeTrader         Decimal       @default(0) @db.Decimal(18, 2)
+  feePlatform       Decimal       @default(0) @db.Decimal(18, 2)
+  status            OrderStatus   @default(PENDING)
+  merchantOrderId   String?
+  idempotencyKey    String
+  description       String?
+  metadata          Json?
+  paymentDetails    Json?
+  payoutRequisites  Json?
+  payerIp           String?
+  payerDeviceId     String?
+  payerCardHash     String?
+  rerouteCount      Int           @default(0)
+  expiresAt         DateTime
+  confirmedAt       DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  cancelReason      String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  merchant Merchant         @relation(fields: [merchantId], references: [id])
+  trader   Trader?          @relation(fields: [traderId], references: [id])
+  events   OrderEvent[]
+
+  @@unique([merchantId, idempotencyKey])
+  @@index([traderId, status])
+  @@index([merchantId, createdAt])
+  @@index([status, expiresAt])
+}
+
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  type      String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model LedgerEntry {
+  id           String           @id @default(cuid())
+  partyType    LedgerPartyType
+  partyId      String
+  orderId      String?
+  kind         LedgerKind
+  amount       Decimal          @db.Decimal(18, 2)
+  balanceAfter Decimal          @db.Decimal(18, 2)
+  memo         String?
+  createdAt    DateTime         @default(now())
+
+  @@index([partyType, partyId, createdAt])
+  @@index([orderId])
+}
+
+model BlacklistEntry {
+  id        String        @id @default(cuid())
+  kind      BlacklistKind
+  value     String
+  reason    String
+  createdBy String?
+  expiresAt DateTime?
+  createdAt DateTime      @default(now())
+
+  @@unique([kind, value])
+}
+
+model FraudEvent {
+  id         String   @id @default(cuid())
+  merchantId String?
+  orderId    String?
+  rule       String
+  severity   String   @default("MEDIUM")
+  details    Json
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model WebhookDelivery {
+  id           String        @id @default(cuid())
+  merchantId   String
+  orderId      String?
+  event        String
+  url          String
+  status       WebhookStatus @default(PENDING)
+  attempt      Int           @default(0)
+  responseCode Int?
+  error        String?
+  payload      Json
+  createdAt    DateTime      @default(now())
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, createdAt])
+}

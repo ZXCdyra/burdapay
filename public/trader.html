@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PayFlow — Кабинет трейдера</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css?v=3">
+<script src="/vendor/socket.io.min.js"></script>
+</head>
+<body>
+<div id="app" class="hidden">
+  <header>
+    <div class="logo">Pay<span>Flow</span> <span style="font-size:12px;color:var(--muted)">trader</span></div>
+    <div class="hdr-right">
+      <span class="badge TRADER" id="roleBadge">TRADER</span>
+      <span style="color:var(--muted);font-size:13px" id="whoami"></span>
+      <button class="ghost" onclick="PF.logout()">Выйти</button>
+    </div>
+  </header>
+  <nav id="nav"></nav>
+  <main id="view"></main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/app.js?v=3"></script>
+<script>
+const TABS = ['dashboard', 'orders', 'requisites'];
+const LABELS = { dashboard:'Обзор и статус', orders:'Мои ордера', requisites:'Реквизиты' };
+let tab = 'dashboard';
+
+(async () => {
+  const me = await PF.requireRole('TRADER');
+  if (!me) return;
+  document.getElementById('app').classList.remove('hidden');
+  const nav = document.getElementById('nav');
+  for (const t of TABS) {
+    const b = document.createElement('button');
+    b.textContent = LABELS[t];
+    b.dataset.tab = t;
+    b.onclick = () => { tab = t; render(); };
+    nav.appendChild(b);
+  }
+  render();
+  PF.connectWS({
+    onNewOrder: (o) => { PF.toast(`🔔 Новый ордер …${o.orderId.slice(-8)} · ${o.amount} ${o.currency} · fee ${o.fee}`); if (tab === 'orders') render(); },
+    onExpired: () => { PF.toast('Ордер истёк'); render(); },
+  });
+})();
+
+async function render() {
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  const v = document.getElementById('view');
+  v.innerHTML = '<div class="empty">Загрузка…</div>';
+  try {
+    if (tab === 'dashboard') await viewDashboard(v);
+    else if (tab === 'orders') await viewOrders(v);
+    else if (tab === 'requisites') await viewRequisites(v);
+  } catch (err) { v.innerHTML = `<div class="empty">${PF.esc(err.message)}</div>`; }
+}
+
+async function viewDashboard(v) {
+  const [me, bal] = await Promise.all([PF.api('/trader/me'), PF.api('/trader/me/balance')]);
+  v.innerHTML = `<div class="grid">
+    ${PF.statCard('Баланс', PF.money(me.balance) + ' ₽', Number(me.balance) < 0 ? 'var(--red)' : 'var(--green)')}
+    ${PF.statCard('Ордеров в работе', bal.lockedOrders, 'var(--yellow)')}
+    ${PF.statCard('Успешных', me.successCount, 'var(--green)')}
+    ${PF.statCard('Провалов', me.failCount, 'var(--red)')}
+  </div>
+  <div class="card form-card"><div class="panel-t"><h2>Статус на линии</h2></div>
+    <div class="row" style="align-items:center;font-size:14px">
+      <span>${me.isOnline ? '🟢 Онлайн — получаете ордера' : '⚪ Офлайн'}</span>
+      <span>· аккаунт: <b class="${me.status === 'ACTIVE' ? 'st-COMPLETED' : 'st-FAILED'}">${me.status}</b></span>
+      <button class="${me.isOnline ? 'red' : 'green'}" onclick="toggleOnline(${!me.isOnline})">
+        ${me.isOnline ? 'Уйти в офлайн' : 'Выйти на линию'}</button>
+    </div>
+    <p class="sub" style="margin-top:14px;margin-bottom:0">
+      Методы: CARD ${me.methodCard ? '✓' : '—'} · SBP ${me.methodSbp ? '✓' : '—'}
+      &nbsp;|&nbsp; Лимиты: ${PF.money(me.minOrderAmount)}–${PF.money(me.maxOrderAmount)} ₽ · до ${me.maxConcurrentOrders} ордеров параллельно
+    </p></div>
+  <div class="card"><div class="panel-t"><h2>Последние ledger-операции</h2></div>${
+    PF.table(['Время','Тип','Сумма','Баланс после'], bal.entries.slice(0, 15).map((l) => `
+    <tr><td>${PF.dt(l.createdAt)}</td><td class="mono">${l.kind}</td>
+    <td style="color:${Number(l.amount) >= 0 ? 'var(--green)' : 'var(--red)'}">${Number(l.amount).toLocaleString('ru')}</td>
+    <td>${Number(l.balanceAfter).toLocaleString('ru')}</td></tr>`))}</div>`;
+}
+async function toggleOnline(on) {
+  await PF.api('/trader/me', { method: 'PATCH', body: JSON.stringify({ isOnline: on }) });
+  PF.toast(on ? 'Вы на линии' : 'Вы офлайн'); render();
+}
+
+async function viewOrders(v) {
+  const list = await PF.api('/trader/orders');
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Мои ордера (${list.length})</h2>
+    <button class="ghost" onclick="render()">⟳ Обновить</button></div>${
+    PF.table(['ID','Тип','Метод','Сумма ₽','Fee ₽','Статус','Истекает','Действия'], list.map((o) => {
+      let actions = '—';
+      if (o.status === 'PENDING') {
+        const acceptWindow = (new Date(o.createdAt)).getTime() + 10*60*1000;
+        if (Date.now() <= acceptWindow) {
+          actions = `<button onclick="tAction('${o.id}','accept')">Принять</button>
+                     <button class="red" onclick="tDecline('${o.id}')">Отказаться</button>`;
+        } else {
+          actions = 'архив';
+        }
+      }
+      else if (o.status === 'ASSIGNED' && o.type === 'DEPOSIT')
+        actions = `<button class="green" onclick="tConfirm('${o.id}')">Платёж получен</button>
+                   <button class="red" onclick="tDecline('${o.id}')">Отказаться</button>`;
+      else if (o.status === 'ASSIGNED' && o.type === 'WITHDRAWAL')
+        actions = `<button class="green" onclick="tAction('${o.id}','mark-paid')">Выплачено</button>
+                   <button class="ghost" onclick="showPayout('${o.id}', this)">Реквизиты ▾</button>`;
+      return `<tr><td class="mono">${o.id.slice(-8)}</td><td>${o.type}</td><td>${o.method}</td>
+      <td>${PF.money(o.amount)}</td><td>${o.feeTrader ?? o.fee}</td>
+      <td class="st-${o.status}"><b>${o.status}</b></td><td>${PF.dt(o.expiresAt)}</td>
+      <td class="row">${actions}</td></tr>`;
+    }))}</div>
+  <pre id="payoutBox" class="mono card payout hidden" style="margin-top:16px"></pre>`;
+}
+async function tAction(id, act, body = {}) {
+  await PF.api(`/trader/orders/${id}/${act}`, { method: 'POST', body: JSON.stringify(body) });
+  PF.toast(act === 'accept' ? 'Ордер принят' : 'Готово'); render();
+}
+async function tDecline(id) {
+  if (!confirm('Отказаться? Ордер уйдёт другому трейдеру, статистика ухудшится.')) return;
+  await PF.api(`/trader/orders/${id}/decline`, { method: 'POST',
+    body: JSON.stringify({ reason: 'declined via cabinet' }) });
+  PF.toast('Заказ передан другому трейдеру'); render();
+}
+async function tConfirm(id) {
+  const payerName = prompt('Имя плательщика (опционально):') || undefined;
+  await tAction(id, 'confirm', { payerName });
+}
+async function showPayout(id, btn) {
+  const box = document.getElementById('payoutBox');
+  const det = await PF.api('/trader/orders/' + id);
+  box.classList.remove('hidden');
+  box.textContent = JSON.stringify(det.payoutRequisites, null, 2);
+}
+
+async function viewRequisites(v) {
+  const list = await PF.api('/trader/me/requisites');
+  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Добавить реквизиты</h2></div>
+  <label>Метод<select id="rqMethod" onchange="
+    document.getElementById('cardFields').classList.toggle('hidden', this.value !== 'CARD');
+    document.getElementById('sbpFields').classList.toggle('hidden', this.value !== 'SBP')">
+    <option value="CARD">CARD</option><option value="SBP">SBP</option></select></label>
+  <label>Банк<input id="rqBank" placeholder="Sberbank / T-Bank / Alpha-Bank…"></label>
+  <label>Получатель<input id="rqReceiver" placeholder="IVAN IVANOV"></label>
+  <div id="cardFields"><label>Номер карты<input id="rqCard" placeholder="4276XXXXXXXXXXXX"></label></div>
+  <div id="sbpFields" class="hidden"><label>Телефон СБП<input id="rqPhone" placeholder="+79001234567"></label></div>
+  <button onclick="addReq()">Добавить</button>
+  <p class="sub" style="margin-top:12px;margin-bottom:0">Номер карты шифруется AES-256-GCM и никогда не показывается полностью в кабинете.</p></div>
+  <div class="card">${PF.table(['Метод','Банк','Получатель','Карта / Телефон','Активен'], list.map((r) => `
+  <tr><td>${r.method}</td><td>${PF.esc(r.bankName)}</td><td>${PF.esc(r.receiverName)}</td>
+  <td class="mono">${r.cardLast4 ? '**** **** **** ' + r.cardLast4 : PF.esc(r.sbpPhone || '')}</td>
+  <td class="${r.isActive ? 'st-COMPLETED' : 'st-FAILED'}">${r.isActive ? 'да' : 'нет'}</td></tr>`))}</div>`;
+}
+async function addReq() {
+  const m = document.getElementById('rqMethod').value;
+  const body = {
+    method: m,
+    bankName: document.getElementById('rqBank').value.trim(),
+    receiverName: document.getElementById('rqReceiver').value.trim(),
+  };
+  if (m === 'CARD') body.cardNumber = document.getElementById('rqCard').value.replace(/\D/g, '');
+  else body.phone = document.getElementById('rqPhone').value.trim();
+  try { await PF.api('/trader/me/requisites', { method: 'POST', body: JSON.stringify(body) }); PF.toast('Реквизит добавлен'); render(); }
+  catch (e) { alert(e.message); }
+}
+</script>
+</body>
+</html>

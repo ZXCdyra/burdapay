@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: payflow-api
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: payflow-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_ENCRYPTION_KEY
+        sync: false
+      - key: CARD_HASH_PEPPER
+        sync: false
+      - key: DEFAULT_ORDER_TTL_SECONDS
+        value: '900'
+      - key: WEBHOOK_ATTEMPTS
+        value: '5'
+      - key: WEBHOOK_BACKOFF_BASE_SECONDS
+        value: '30'
+      - key: CORS_ORIGIN
+        value: '*'
+
+databases:
+  - name: payflow-db
+    plan: basic-256mb
+    databaseName: payflow
+    user: payflow

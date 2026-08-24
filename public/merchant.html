@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PayFlow — Кабинет мерчанта</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css?v=3">
+<script src="/vendor/socket.io.min.js"></script>
+</head>
+<body>
+<div id="app" class="hidden">
+  <header>
+    <div class="logo">Pay<span>Flow</span> <span style="font-size:12px;color:var(--muted)">merchant</span></div>
+    <div class="hdr-right">
+      <span class="badge MERCHANT" id="roleBadge">MERCHANT</span>
+      <span style="color:var(--muted);font-size:13px" id="whoami"></span>
+      <button class="ghost" onclick="PF.logout()">Выйти</button>
+    </div>
+  </header>
+  <nav id="nav"></nav>
+  <main id="view"></main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/app.js?v=3"></script>
+<script>
+const TABS = ['dashboard', 'orders', 'new-order', 'keys'];
+const LABELS = { dashboard:'Обзор', orders:'Ордера', 'new-order':'Создать ордер', keys:'API-ключи' };
+let tab = 'dashboard';
+
+(async () => {
+  const me = await PF.requireRole('MERCHANT');
+  if (!me) return;
+  document.getElementById('app').classList.remove('hidden');
+  const nav = document.getElementById('nav');
+  for (const t of TABS) {
+    const b = document.createElement('button');
+    b.textContent = LABELS[t];
+    b.dataset.tab = t;
+    b.onclick = () => { tab = t; render(); };
+    nav.appendChild(b);
+  }
+  render();
+  PF.connectWS({
+    onOrderUpdated: (o) => { PF.toast(`Ордер …${o.id.slice(-8)} → ${o.status}`); if (tab === 'orders') render(); },
+  });
+})();
+
+async function render() {
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  const v = document.getElementById('view');
+  v.innerHTML = '<div class="empty">Загрузка…</div>';
+  try {
+    if (tab === 'dashboard') await viewDashboard(v);
+    else if (tab === 'orders') await viewOrders(v);
+    else if (tab === 'new-order') viewNewOrder(v);
+    else if (tab === 'keys') await viewKeys(v);
+  } catch (err) { v.innerHTML = `<div class="empty">${PF.esc(err.message)}</div>`; }
+}
+
+async function viewDashboard(v) {
+  const [me, ledger] = await Promise.all([PF.api('/merchant/me'), PF.api('/merchant/me/ledger')]);
+  const orders = await PF.api('/merchant/orders');
+  const completed = orders.filter((o) => o.status === 'COMPLETED');
+  const volume = completed.reduce((s, o) => s + Number(o.amount), 0);
+  const pending = orders.filter((o) => ['PENDING','ASSIGNED'].includes(o.status)).length;
+  v.innerHTML = `<div class="grid">
+    ${PF.statCard('Баланс', PF.money(me.balance) + ' ₽', Number(me.balance) < 0 ? 'var(--red)' : 'var(--green)')}
+    ${statCard2('Комиссия платформы', me.feePercent + '%')}
+    ${PF.statCard('Оборот (завершённые)', PF.money(volume) + ' ₽', 'var(--cyan)')}
+    ${PF.statCard('В работе', pending, 'var(--yellow)')}
+  </div>
+  <div class="card"><div class="panel-t"><h2>Последние операции</h2></div>${
+    PF.table(['Время','Тип','Сумма','Баланс после'], ledger.slice(0, 12).map((l) => `
+    <tr><td>${PF.dt(l.createdAt)}</td><td class="mono">${l.kind}</td>
+    <td style="color:${Number(l.amount) >= 0 ? 'var(--green)' : 'var(--red)'}">${Number(l.amount).toLocaleString('ru')}</td>
+    <td>${Number(l.balanceAfter).toLocaleString('ru')}</td></tr>`))}</div>`;
+}
+function statCard2(t, val){ return `<div class="card stat"><h3>${t}</h3><div class="val">${val}</div></div>`; }
+
+async function viewOrders(v) {
+  const list = await PF.api('/merchant/orders');
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Мои ордера (${list.length})</h2>
+    <button class="ghost" onclick="render()">⟳ Обновить</button></div>${
+    PF.table(['ID','External','Тип','Метод','Сумма ₽','Fee ₽','Статус','Создан','Завершён'], list.map((o) => `
+    <tr><td class="mono">${o.id.slice(-8)}</td><td class="mono">${PF.esc(o.merchantOrderId ?? '')}</td>
+    <td>${o.type}</td><td>${o.method}</td><td>${PF.money(o.amount)}</td><td>${o.feeMerchant}</td>
+    <td class="st-${o.status}"><b>${o.status}</b></td><td>${PF.dt(o.createdAt)}</td><td>${PF.dt(o.completedAt)}</td></tr>`))}</div>`;
+}
+
+function viewNewOrder(v) {
+  const idem = 'ui-' + Date.now();
+  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Ордер через API (HMAC-подпись)</h2></div>
+  <label>Public key (pk_…)<input id="pkKey" value="${sessionStorage.getItem('pf_pk') || ''}" placeholder="pk_..."></label>
+  <label>Secret (sk_…) — не сохраняется на сервере<input id="skSecret" type="password" value="${sessionStorage.getItem('pf_sk') || ''}" placeholder="sk_..."></label>
+  <label>Тип<select id="ordType"><option value="DEPOSIT">DEPOSIT — приём платежа</option><option value="WITHDRAWAL">WITHDRAWAL — выплата</option></select></label>
+  <label>Метод<select id="ordMethod"><option value="CARD">CARD (Visa / Mastercard / МИР)</option><option value="SBP">SBP</option></select></label>
+  <label>Сумма ₽<input id="ordAmount" type="number" min="100" value="5000"></label>
+  <label>Idempotency key<input id="ordIdem" value="${idem}"></label>
+  <button onclick="createOrder()">Подписать и отправить</button>
+  <pre id="ordOut" class="mono payout" style="margin-top:14px;color:var(--muted)">Ответ появится здесь…</pre>
+  <p class="sub" style="margin-top:14px;margin-bottom:0">Подпись: <span class="mono">HMAC_SHA256(sk, "t.rawBody")</span> в заголовке <span class="mono">x-signature: t=…,v1=…</span></p></div>`;
+}
+
+async function createOrder() {
+  const pk = document.getElementById('pkKey').value.trim();
+  const sk = document.getElementById('skSecret').value.trim();
+  sessionStorage.setItem('pf_pk', pk);
+  sessionStorage.setItem('pf_sk', sk);
+  const body = {
+    type: document.getElementById('ordType').value,
+    method: document.getElementById('ordMethod').value,
+    amount: parseFloat(document.getElementById('ordAmount').value),
+    idempotencyKey: document.getElementById('ordIdem').value.trim() || ('ui-' + Date.now()),
+  };
+  const raw = JSON.stringify(body);
+  const t = Math.floor(Date.now() / 1000);
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(sk), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${t}.${raw}`));
+  const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  try {
+    const res = await fetch('/orders', { method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': pk, 'x-signature': `t=${t},v1=${hex}` },
+      body: raw });
+    const data = await res.json();
+    document.getElementById('ordOut').textContent = JSON.stringify(data, null, 2);
+    if (res.ok && !data.replayed) PF.toast('Ордер создан, трейдер назначен');
+  } catch (e) { document.getElementById('ordOut').textContent = 'Error: ' + e.message; }
+}
+
+async function viewKeys(v) {
+  const keys = await PF.api('/merchant/me/api-keys');
+  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Новый API-ключ</h2></div>
+  <label>Имя<input id="keyName" placeholder="production"></label>
+  <button onclick="createKey()">Создать</button>
+  <div id="keyOut" class="mono" style="margin-top:12px;word-break:break-all"></div></div>
+  <div class="card">${PF.table(['Public key','Префикс секрета','Имя','Статус','Last used',''], keys.map((k) => `
+  <tr><td class="mono">${k.publicKey}</td><td class="mono">${k.secretPrefix}</td><td>${PF.esc(k.name)}</td>
+  <td class="st-${k.status}"><b>${k.status}</b></td><td>${PF.dt(k.lastUsedAt)}</td>
+  <td>${k.status === 'ACTIVE' ? `<button class="red" onclick="revokeKey('${k.id}')">Revoke</button>` : ''}</td></tr>`))}</div>`;
+}
+async function createKey() {
+  const res = await PF.api('/merchant/me/api-keys', { method: 'POST',
+    body: JSON.stringify({ name: document.getElementById('keyName').value.trim() || 'default' }) });
+  document.getElementById('keyOut').innerHTML =
+    `publicKey: <b>${res.publicKey}</b><br>secret (показан один раз): <b>${res.secret}</b>`;
+  PF.toast('Ключ создан — сохраните secret сейчас');
+}
+async function revokeKey(id) {
+  if (!confirm('Отозвать ключ? Интеграция с этим ключом перестанет работать.')) return;
+  await PF.api('/merchant/me/api-keys/' + id, { method: 'DELETE' });
+  PF.toast('Ключ отозван'); render();
+}
+</script>
+</body>
+</html>

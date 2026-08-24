@@ -1,0 +1,32 @@
+name: Deploy Prisma Migrations
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ production ]
+
+jobs:
+  migrate:
+    name: Deploy migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: npx prisma generate --schema=prisma/schema.prisma
+
+      - name: Deploy Prisma migrations
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: npx prisma migrate deploy --schema=prisma/schema.prisma

@@ -1,0 +1,49 @@
+:root{
+  --bg:#0b0e14; --panel:#11151f; --panel2:#161b28; --border:#1e2536;
+  --text:#dbe2ef; --muted:#7d8aa5; --accent:#5b8cff; --accent2:#8b5cf6;
+  --green:#34d399; --red:#f87171; --yellow:#fbbf24; --cyan:#22d3ee;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+body{background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent)}
+button{cursor:pointer;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;background:var(--accent);color:#fff;transition:filter .15s}
+button:hover{filter:brightness(1.15)}
+button.ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+button.green{background:var(--green);color:#06281c}
+button.red{background:var(--red);color:#2b0808}
+button.yellow{background:var(--yellow);color:#2b2003}
+input,select{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px;width:100%}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:12px}
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px}
+.login-card{width:380px}
+.logo{font-size:22px;font-weight:800;margin-bottom:4px}
+.logo span{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:13px;margin-bottom:22px}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:10}
+.hdr-right{display:flex;gap:10px;align-items:center}
+.badge{padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;text-transform:uppercase;display:inline-block}
+.badge.MERCHANT{background:#14315c;color:#8ab6ff}.badge.TRADER{background:#0e3b31;color:#5eead4}.badge.ADMIN{background:#3a1450;color:#d8b4fe}
+nav{display:flex;gap:4px;padding:10px 16px;border-bottom:1px solid var(--border);overflow-x:auto;max-width:1200px;margin:0 auto}
+nav button{background:transparent;color:var(--muted)}
+nav button.active{background:var(--panel2);color:var(--text)}
+main{padding:24px;max-width:1200px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-bottom:22px}
+.stat h3{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.stat .val{font-size:25px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:10px;border-bottom:1px solid var(--border)}
+td{padding:10px;border-bottom:1px solid var(--border)}
+tr:hover td{background:rgba(91,140,255,.04)}
+.panel-t{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.panel-t h2{font-size:17px}
+.mono{font-family:Consolas,monospace;font-size:12px;color:var(--cyan)}
+.st-PENDING{color:var(--yellow)}.st-ASSIGNED{color:var(--cyan)}.st-COMPLETED{color:var(--green)}
+.st-CANCELLED,.st-EXPIRED,.st-FAILED,.st-REVOKED{color:var(--red)}.st-DISPUTED{color:var(--accent2)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.form-card{max-width:520px;margin-bottom:20px}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel2);border:1px solid var(--accent);padding:12px 18px;border-radius:10px;font-size:13px;display:none;z-index:99}
+.hidden{display:none}
+.empty{color:var(--muted);padding:26px;text-align:center}
+pre.payout{white-space:pre-wrap;word-break:break-all}
+::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
