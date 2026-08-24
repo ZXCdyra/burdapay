@@ -97,7 +97,10 @@ export class AuthService {
       return { accessToken: this.sign(merchant.id, merchant.email, UserRole.MERCHANT), role: UserRole.MERCHANT, email };
     }
 
-    const trader = await this.prisma.trader.findUnique({ where: { email } });
+    const trader = await this.prisma.trader.findUnique({
+      where: { email },
+      select: { id: true, email: true, passwordHash: true, status: true },
+    });
     if (trader && (await bcrypt.compare(password, trader.passwordHash))) {
       if (trader.status === PartyStatus.BLOCKED) throw new UnauthorizedException('Account blocked');
       return { accessToken: this.sign(trader.id, trader.email, UserRole.TRADER), role: UserRole.TRADER, email };
@@ -122,10 +125,18 @@ export class AuthService {
         };
       }
       case UserRole.TRADER: {
-        const trader = await this.prisma.trader.findUnique({ where: { id: user.id } });
+        const trader = await this.prisma.trader.findUnique({
+          where: { id: user.id },
+          select: {
+            id: true, accountId: true, email: true, displayName: true,
+            status: true, isOnline: true, methodCard: true, methodSbp: true,
+            feePercent: true, minOrderAmount: true, maxOrderAmount: true,
+            balance: true, successCount: true, failCount: true, createdAt: true, updatedAt: true,
+          },
+        });
         if (!trader) throw new UnauthorizedException('Trader not found');
         return {
-          ...this.sanitize(trader, ['passwordHash']),
+          ...this.sanitize(trader as Record<string, unknown>, ['passwordHash']),
           role: UserRole.TRADER,
         };
       }
