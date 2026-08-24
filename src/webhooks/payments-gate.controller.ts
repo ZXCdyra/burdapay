@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppConfig } from '../common/config/app-config.service';
 import { CryptoUtil } from '../common/utils/crypto.util';
 import { OrdersService } from '../orders/orders.service';
+import { getWebhookOrderCandidates } from './payments-gate.utils';
 
 @Controller(['payments-gate', 'api/webhooks'])
 export class PaymentsGateController {
@@ -41,6 +42,7 @@ export class PaymentsGateController {
 
     const txId = payload?.object?.uuid ?? '';
     const externalId = payload?.object?.external_id ?? null;
+    const orderMatchCandidates = getWebhookOrderCandidates(payload);
     const webhookSecretKey = payload?.secret_key ?? null;
 
     // Timestamp tolerance: 5 minutes
@@ -58,10 +60,13 @@ export class PaymentsGateController {
     if (globalSecret) candidates.push(globalSecret);
     if (webhookSecretKey) candidates.push(webhookSecretKey);
 
-    // Try to resolve order to get merchant secret
-    if (!candidates.length || !externalId) {
+    // Try to resolve order to get merchant secret using any known order id variant.
+    if (!candidates.length && orderMatchCandidates.length > 0) {
       try {
-        const order = await this.prisma.order.findFirst({ where: { merchantOrderId: externalId }, include: { merchant: true } });
+        const order = await this.prisma.order.findFirst({
+          where: { OR: orderMatchCandidates.map((merchantOrderId) => ({ merchantOrderId })) },
+          include: { merchant: true },
+        });
         if (order?.merchant?.callbackSecretEncrypted) {
           try {
             const s = CryptoUtil.decrypt(order.merchant.callbackSecretEncrypted, this.cfg.encryptionKey);
@@ -71,7 +76,7 @@ export class PaymentsGateController {
           }
         }
       } catch (e) {
-        // ignore
+        this.logger.warn(`Cannot resolve merchant secret by order ids ${orderMatchCandidates.join(', ')}`);
       }
     }
 
@@ -90,14 +95,15 @@ export class PaymentsGateController {
       return res.status(401).send('Invalid signature');
     }
 
-    // find order by merchantOrderId or txId
-    const order = externalId
-      ? await this.prisma.order.findFirst({ where: { merchantOrderId: externalId } })
-      : await this.prisma.order.findUnique({ where: { id: txId } });
+    const order = orderMatchCandidates.length > 0
+      ? await this.prisma.order.findFirst({
+          where: { OR: orderMatchCandidates.map((merchantOrderId) => ({ merchantOrderId })) },
+        })
+      : null;
 
     if (!order) {
-      this.logger.warn(`Order not found for external id ${externalId} / tx ${txId}`);
-      return res.status(200).send('ok');
+      this.logger.warn(`Order not found for payment-gate webhook. external_id=${externalId || 'n/a'}, uuid=${txId || 'n/a'}, candidates=${orderMatchCandidates.join(', ') || 'none'}`);
+      return res.status(200).json({ ok: true, matched: false, reason: 'ORDER_NOT_FOUND' });
     }
 
     const eventType = payload?.type || '';
