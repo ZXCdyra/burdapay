@@ -1,0 +1,38 @@
+name: Resolve Migration
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve failed migration (mark applied)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Resolving migration 2_add_deposit_requests as applied"
+          npx prisma migrate resolve --schema=prisma/schema.prisma --applied "2_add_deposit_requests"
+
+      - name: Deploy migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Deploying migrations"
+          npx prisma migrate deploy --schema=prisma/schema.prisma
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma generate --schema=prisma/schema.prisma
