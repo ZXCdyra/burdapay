@@ -88,8 +88,8 @@ async function viewDashboard(v) {
     PF.api('/trader/me/balance'),
     PF.api('/trader/me/deals').catch(() => []),
   ]);
-  const activeCount = deals.filter((d: any) => d.type === 'DEPOSIT').length;
-  const withdrawCount = deals.filter((d: any) => d.type === 'WITHDRAWAL').length;
+  const activeCount = deals.filter(d => d.type === 'DEPOSIT').length;
+  const withdrawCount = deals.filter(d => d.type === 'WITHDRAWAL').length;
   v.innerHTML = `<div class="grid">
     ${PF.statCard('Баланс', PF.money(me.balance) + ' руб', Number(me.balance) < 0 ? 'var(--red)' : 'var(--green)')}
     ${PF.statCard('Активных ордеров', bal.lockedOrders, 'var(--yellow)')}
@@ -109,7 +109,7 @@ async function viewDashboard(v) {
       </p></div>
     <!-- Limits editing moved to Requisites tab per UX request -->
   <div class="card"><div class="panel-t"><h2>Последние операции</h2></div>${
-    PF.table(['Время','Тип','Сумма','Баланс после'], bal.entries.slice(0, 15).map((l: any) => `
+    PF.table(['Время','Тип','Сумма','Баланс после'], bal.entries.slice(0, 15).map((l) => `
     <tr><td>${PF.dt(l.createdAt)}</td><td class="mono">${l.kind}</td>
     <td style="color:${Number(l.amount) >= 0 ? 'var(--green)' : 'var(--red)'}">${Number(l.amount).toLocaleString('ru')}</td>
     <td>${Number(l.balanceAfter).toLocaleString('ru')}</td></tr>`))}</div>`;
@@ -121,18 +121,18 @@ async function toggleOnline(on) {
 
 async function viewDeals(v) {
   const deals = await PF.api('/trader/me/deals');
-  const totalVolume = deals.reduce((s: number, d: any) => s + Number(d.amount), 0);
-  const totalFees = deals.reduce((s: number, d: any) => s + Number(d.feeTrader), 0);
+  const totalVolume = deals.reduce((s, d) => s + Number(d.amount), 0);
+  const totalFees = deals.reduce((s, d) => s + Number(d.feeTrader), 0);
   v.innerHTML = `<div class="grid">
     ${PF.statCard('Всего сделок', deals.length, 'var(--green)')}
     ${PF.statCard('Объём', PF.money(totalVolume) + ' ' + (deals[0]?.currency || 'RUB'), 'var(--cyan)')}
     ${PF.statCard('Заработано на fee', PF.money(totalFees), 'var(--accent)')}
-    ${PF.statCard('DEPOSIT / WITHDRAWAL', (deals.filter((d: any) => d.type === 'DEPOSIT').length) + ' / ' + (deals.filter((d: any) => d.type === 'WITHDRAWAL').length), 'var(--yellow)')}
+    ${PF.statCard('DEPOSIT / WITHDRAWAL', (deals.filter(d => d.type === 'DEPOSIT').length) + ' / ' + (deals.filter(d => d.type === 'WITHDRAWAL').length), 'var(--yellow)')}
   </div>
   <div class="card">
     <div class="panel-t"><h2>История сделок (${deals.length})</h2>
       <button class="ghost" onclick="render()">Обновить</button></div>
-    ${deals.length ? PF.table(['Тип','Метод','Сумма','Merchant','Fee трейдера','Дата','Завершена'], deals.map((d: any) => `
+    ${deals.length ? PF.table(['Тип','Метод','Сумма','Merchant','Fee трейдера','Дата','Завершена'], deals.map((d) => `
       <tr><td><span class="st-${d.type === 'DEPOSIT' ? 'COMPLETED' : 'ASSIGNED'}">${d.type}</span></td><td>${d.method}</td>
       <td style="font-weight:600">${PF.money(d.amount)}</td>
       <td class="mono" title="${PF.esc(d.merchantName || '')}">${(d.merchantName || '').slice(0,15)}</td>
@@ -144,9 +144,9 @@ async function viewDeals(v) {
 
 async function viewArchive(v) {
   const archived = await PF.api('/trader/me/orders/archived');
-  const cancelled = archived.filter((o: any) => o.status === 'CANCELLED');
-  const expired = archived.filter((o: any) => o.status === 'EXPIRED');
-  const disputed = archived.filter((o: any) => o.status === 'DISPUTED');
+  const cancelled = archived.filter(o => o.status === 'CANCELLED');
+  const expired = archived.filter(o => o.status === 'EXPIRED');
+  const disputed = archived.filter(o => o.status === 'DISPUTED');
   v.innerHTML = `<div class="grid">
     ${PF.statCard('Всего в архиве', archived.length, 'var(--muted)')}
     ${PF.statCard('Отменено', cancelled.length, 'var(--red)')}
@@ -156,7 +156,7 @@ async function viewArchive(v) {
   <div class="card">
     <div class="panel-t"><h2>Архив ордеров (${archived.length})</h2>
       <button class="ghost" onclick="render()">Обновить</button></div>
-    ${archived.length ? PF.table(['Тип','Метод','Сумма','Merchant','Статус','Причина','Дата'], archived.map((o: any) => `
+    ${archived.length ? PF.table(['Тип','Метод','Сумма','Merchant','Статус','Причина','Дата'], archived.map((o) => `
       <tr><td>${o.type}</td><td>${o.method}</td>
       <td style="font-weight:600">${PF.money(o.amount)}</td>
       <td class="mono" title="${PF.esc(o.merchantName || '')}">${(o.merchantName || '').slice(0,15)}</td>
