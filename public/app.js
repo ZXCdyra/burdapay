@@ -45,7 +45,29 @@ const PF = {
   connectWS(handlers = {}) {
     try {
       if (typeof io === 'undefined') { console.warn('socket.io недоступен — live-обновления выключены'); return null; }
-      PF.socket = io('/', { auth: { token: localStorage.getItem('pf_token') } });
+      
+      // Use polling as primary transport (Render doesn't support WebSocket by default)
+      PF.socket = io('/', {
+        auth: { token: localStorage.getItem('pf_token') },
+        transports: ['polling', 'websocket'], // polling first for compatibility
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
+      });
+      
+      PF.socket.on('connect', () => {
+        console.log('✅ WS connected');
+        if (handlers.onConnected) handlers.onConnected();
+      });
+      
+      PF.socket.on('connect_error', (err) => {
+        console.warn('❌ WS connect error:', err.message);
+      });
+      
+      PF.socket.on('disconnect', (reason) => {
+        console.log('🔌 WS disconnected:', reason);
+      });
+      
       PF.socket.on('order.updated', (o) => handlers.onOrderUpdated && handlers.onOrderUpdated(o));
       PF.socket.on('order.new', (o) => handlers.onNewOrder && handlers.onNewOrder(o));
       PF.socket.on('order.expired', (o) => handlers.onExpired && handlers.onExpired(o));

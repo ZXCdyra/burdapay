@@ -11,7 +11,10 @@ import { Server, Socket } from 'socket.io';
 import { AppConfig } from '../common/config/app-config.service';
 import { EventsService } from './events.service';
 
-@WebSocketGateway({ cors: { origin: '*', credentials: false } })
+@WebSocketGateway({
+  cors: { origin: '*', credentials: false },
+  transports: ['websocket', 'polling'], // Enable polling for Render
+})
 export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
   server!: Server;
