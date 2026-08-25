@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PayFlow — Кабинет мерчанта</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/style.css?v=6">
+<link rel="stylesheet" href="/style.css?v=7">
 <script src="/vendor/socket.io.min.js"></script>
 </head>
 <body>
@@ -83,10 +83,41 @@ async function viewOrders(v) {
   const list = await PF.api('/merchant/orders');
   v.innerHTML = `<div class="card"><div class="panel-t"><h2>Мои ордера (${list.length})</h2>
     <button class="ghost" onclick="render()">⟳ Обновить</button></div>${
-    PF.table(['ID','External','Тип','Метод','Сумма ₽','Fee ₽','Статус','Создан','Завершён'], list.map((o) => `
-    <tr><td class="mono">${o.id.slice(-8)}</td><td class="mono">${PF.esc(o.merchantOrderId ?? '')}</td>
-    <td>${o.type}</td><td>${o.method}</td><td>${PF.money(o.amount)}</td><td>${o.feeMerchant}</td>
-    <td class="st-${o.status}"><b>${o.status}</b></td><td>${PF.dt(o.createdAt)}</td><td>${PF.dt(o.completedAt)}</td></tr>`))}</div>`;
+    PF.table(['ID','External','Тип','Метод','Сумма ₽','Fee ₽','Статус','Трейдер','Создан'], list.map((o) => {
+      let traderInfo = '—';
+      if (o.traderId) traderInfo = `<span class="mono" style="cursor:pointer" onclick="showTraderDetails('${o.id}',this)" title="Показать реквизиты">👤 ${o.traderId.slice(-6)}</span>`;
+      return `<tr><td class="mono">${o.id.slice(-8)}</td><td class="mono">${PF.esc(o.merchantOrderId ?? '')}</td>
+      <td>${o.type}</td><td>${o.method}</td><td>${PF.money(o.amount)}</td><td>${o.feeMerchant}</td>
+      <td class="st-${o.status}"><b>${o.status}</b></td><td>${traderInfo}</td><td>${PF.dt(o.createdAt)}</td></tr>`;
+    }))}</div>
+  <div id="traderDetailsBox" class="payout hidden" style="margin-top:16px"></div>`;
+}
+async function showTraderDetails(orderId, btn) {
+  const box = document.getElementById('traderDetailsBox');
+  try {
+    const det = await PF.api('/merchant/orders/' + orderId);
+    if (det.paymentDetails) {
+      const pd = det.paymentDetails;
+      let html = `<div class="panel-t"><h3>Реквизиты трейдера — ордер ${orderId.slice(-8)}</h3><button class="ghost" onclick="document.getElementById('traderDetailsBox').classList.add('hidden')">Закрыть</button></div>`;
+      html += '<table><tbody>';
+      html += `<tr><td style="color:var(--muted)">Метод:</td><td><b>${pd.method}</b></td></tr>`;
+      html += `<tr><td style="color:var(--muted)">Банк:</td><td>${PF.esc(pd.bank || '')}</td></tr>`;
+      html += `<tr><td style="color:var(--muted)">Получатель:</td><td>${PF.esc(pd.receiver || '')}</td></tr>`;
+      if (pd.method === 'CARD' && pd.cardNumber) {
+        html += `<tr><td style="color:var(--muted)">Карта:</td><td class="mono" style="color:var(--accent)">${pd.cardNumber}</td></tr>`;
+      } else if (pd.method === 'SBP' && pd.phone) {
+        html += `<tr><td style="color:var(--muted)">Телефон СБП:</td><td class="mono" style="color:var(--accent)">${PF.esc(pd.phone)}</td></tr>`;
+      }
+      if (pd.amount) html += `<tr><td style="color:var(--muted)">Сумма:</td><td>${PF.money(pd.amount)}</td></tr>`;
+      if (pd.comment) html += `<tr><td style="color:var(--muted)">Комментарий:</td><td class="mono">${PF.esc(pd.comment)}</td></tr>`;
+      html += '</tbody></table>';
+      box.innerHTML = html;
+      box.classList.remove('hidden');
+    } else {
+      box.innerHTML = '<div class="empty">Реквизиты недоступны</div>';
+      box.classList.remove('hidden');
+    }
+  } catch (e) { box.innerHTML = '<div class="empty">Ошибка: ' + PF.esc(e.message) + '</div>'; box.classList.remove('hidden'); }
 }
 
 function viewNewOrder(v) {
@@ -99,6 +130,7 @@ function viewNewOrder(v) {
   <label>Idempotency key<input id="ordIdem" value="${idem}"></label>
   <button onclick="createOrder()">Отправить</button>
   <pre id="ordOut" class="mono payout" style="margin-top:14px;color:var(--muted)">Ответ появится здесь…</pre>
+  <div id="traderReqsBox" class="payout hidden" style="margin-top:14px"></div>
   <p class="sub" style="margin-top:14px;margin-bottom:0">Авторизация: заголовок <span class="mono">x-api-key: pk_…</span></p></div>`;
 }
 
@@ -117,6 +149,27 @@ async function createOrder() {
       body: JSON.stringify(body) });
     const data = await res.json();
     document.getElementById('ordOut').textContent = JSON.stringify(data, null, 2);
+    const box = document.getElementById('traderReqsBox');
+    if (res.ok && data.paymentDetails) {
+      const pd = data.paymentDetails;
+      let html = '<div class="panel-t"><h3>📋 Реквизиты трейдера (куда отправлять деньги)</h3></div>';
+      html += '<table><tbody>';
+      html += `<tr><td style="color:var(--muted)">Метод:</td><td><b>${pd.method}</b></td></tr>`;
+      html += `<tr><td style="color:var(--muted)">Банк:</td><td>${PF.esc(pd.bank || '')}</td></tr>`;
+      html += `<tr><td style="color:var(--muted)">Получатель:</td><td>${PF.esc(pd.receiver || '')}</td></tr>`;
+      if (pd.method === 'CARD' && pd.cardNumber) {
+        html += `<tr><td style="color:var(--muted)">Карта:</td><td class="mono" style="color:var(--accent)">${pd.cardNumber}</td></tr>`;
+      } else if (pd.method === 'SBP' && pd.phone) {
+        html += `<tr><td style="color:var(--muted)">Телефон СБП:</td><td class="mono" style="color:var(--accent)">${PF.esc(pd.phone)}</td></tr>`;
+      }
+      html += `<tr><td style="color:var(--muted)">Сумма:</td><td>${PF.money(pd.amount)} ${body.type === 'DEPOSIT' ? '₽' : ''}</td></tr>`;
+      html += `<tr><td style="color:var(--muted)">Комментарий:</td><td class="mono">${PF.esc(pd.comment || '')}</td></tr>`;
+      html += '</tbody></table>';
+      box.innerHTML = html;
+      box.classList.remove('hidden');
+    } else {
+      box.classList.add('hidden');
+    }
     if (res.ok && !data.replayed) PF.toast('Ордер создан, трейдер назначен');
   } catch (e) { document.getElementById('ordOut').textContent = 'Error: ' + e.message; }
 }

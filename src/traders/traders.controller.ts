@@ -8,10 +8,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { PartyStatus, PaymentMethod, Prisma } from '@prisma/client';
+import { OrderStatus, PartyStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { AppConfig } from '../common/config/app-config.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
@@ -280,5 +281,112 @@ export class TradersController {
     // notify admins via websocket
     try { this.events.emitToAdmins('deposit.request.created', { id: created.id, traderId: trader.id, accountId: trader.accountId, amount: created.amount.toFixed(2), currency: created.currency, address: created.address, createdAt: created.createdAt }); } catch {}
     return created;
+  }
+
+  @Get('me/deals')
+  @ApiOperation({ summary: 'Deal history (completed orders) for this trader' })
+  async getDeals(@CurrentUser() user: AuthUser, @Query('status') status?: string) {
+    await this.requireTrader(user.id);
+    const where: Prisma.OrderWhereInput = {
+      traderId: user.id,
+      status: 'COMPLETED',
+    };
+    // filter by type if specified
+    if (status === 'deposit' || status === 'withdrawal') {
+      where.type = status === 'deposit' ? 'DEPOSIT' : 'WITHDRAWAL';
+    }
+    const orders = await this.prisma.order.findMany({
+      where,
+      orderBy: { completedAt: 'desc' },
+      take: 200,
+      include: {
+        merchant: { select: { id: true, name: true } },
+      },
+    });
+    return orders.map((o) => ({
+      id: o.id,
+      type: o.type,
+      method: o.method,
+      amount: o.amount.toFixed(2),
+      currency: o.currency,
+      feeTrader: o.feeTrader.toFixed(2),
+      feeMerchant: o.feeMerchant.toFixed(2),
+      feePlatform: o.feePlatform.toFixed(2),
+      merchantId: o.merchantId,
+      merchantName: o.merchant.name,
+      status: o.status,
+      confirmedAt: o.confirmedAt,
+      completedAt: o.completedAt,
+      createdAt: o.createdAt,
+    }));
+  }
+
+  @Get('me/orders/archived')
+  @ApiOperation({ summary: 'Archived orders (cancelled, expired, disputed) for this trader' })
+  async getArchivedOrders(@CurrentUser() user: AuthUser, @Query('status') status?: string) {
+    await this.requireTrader(user.id);
+    const terminalStatuses: OrderStatus[] = ['CANCELLED', 'EXPIRED', 'DISPUTED'];
+    if (status && terminalStatuses.includes(status as OrderStatus)) {
+      terminalStatuses.length = 0;
+      terminalStatuses.push(status as OrderStatus);
+    }
+    const orders = await this.prisma.order.findMany({
+      where: {
+        traderId: user.id,
+        status: { in: terminalStatuses },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 200,
+      include: {
+        merchant: { select: { id: true, name: true } },
+      },
+    });
+    return orders.map((o) => ({
+      id: o.id,
+      type: o.type,
+      method: o.method,
+      amount: o.amount.toFixed(2),
+      currency: o.currency,
+      feeTrader: o.feeTrader.toFixed(2),
+      feeMerchant: o.feeMerchant.toFixed(2),
+      feePlatform: o.feePlatform.toFixed(2),
+      merchantId: o.merchantId,
+      merchantName: o.merchant.name,
+      status: o.status,
+      cancelReason: o.cancelReason ?? null,
+      createdAt: o.createdAt,
+      completedAt: o.completedAt ?? o.cancelledAt ?? null,
+    }));
+  }
+
+  @Get('me/orders/all')
+  @ApiOperation({ summary: 'All orders (active + archived) for this trader' })
+  async getAllOrders(@CurrentUser() user: AuthUser) {
+    await this.requireTrader(user.id);
+    const orders = await this.prisma.order.findMany({
+      where: { traderId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+      include: {
+        merchant: { select: { id: true, name: true } },
+      },
+    });
+    return orders.map((o) => ({
+      id: o.id,
+      type: o.type,
+      method: o.method,
+      amount: o.amount.toFixed(2),
+      currency: o.currency,
+      feeTrader: o.feeTrader.toFixed(2),
+      feeMerchant: o.feeMerchant.toFixed(2),
+      feePlatform: o.feePlatform.toFixed(2),
+      merchantId: o.merchantId,
+      merchantName: o.merchant.name,
+      status: o.status,
+      cancelReason: o.cancelReason ?? null,
+      confirmedAt: o.confirmedAt,
+      completedAt: o.completedAt ?? o.cancelledAt ?? null,
+      createdAt: o.createdAt,
+    }));
   }
 }

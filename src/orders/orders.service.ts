@@ -237,9 +237,15 @@ export class OrdersService implements OnModuleInit {
     if (order.traderId) {
       this.events.emitToUser('TRADER', order.traderId, 'order.new', this.forTrader(order));
     }
+    // For deposits: include trader's payment details in webhook so merchant knows where to send
+    const webhookPayload = this.webhooks.buildOrderPayload('order.created', order);
+    if (order.type === 'DEPOSIT' && order.paymentDetails) {
+      (webhookPayload as any).traderRequisites = this.decryptPaymentDetails(order.paymentDetails);
+      (webhookPayload as any).traderId = order.traderId;
+    }
     await this.webhooks.dispatch(
       'order.created',
-      this.webhooks.buildOrderPayload('order.created', order),
+      webhookPayload,
       order.merchantId,
     );
   }
@@ -808,20 +814,13 @@ export class OrdersService implements OnModuleInit {
     refCode: string,
   ): Prisma.InputJsonValue {
     if (requisite.method === 'CARD') {
-      let fullCard: string | null = null;
-      if (requisite.cardNumberEncrypted) {
-        try {
-          fullCard = CryptoUtil.decrypt(requisite.cardNumberEncrypted, this.cfg.encryptionKey);
-        } catch {
-          fullCard = null;
-        }
-      }
+      // cardNumberEncrypted уже AES-256-GCM зашифрован при создании реквизита
       return {
         method: 'CARD',
         bank: requisite.bankName,
         receiver: requisite.receiverName,
-        cardNumber: fullCard,
-        cardMasked: requisite.cardLast4 ? `**** **** **** ${requisite.cardLast4}` : null,
+        cardNumberEncrypted: requisite.cardNumberEncrypted ?? null,
+        cardLast4: requisite.cardLast4,
         amount: amount.toFixed(2),
         comment: refCode,
       } as Prisma.InputJsonValue;
@@ -872,6 +871,30 @@ export class OrdersService implements OnModuleInit {
     return clone;
   }
 
+  /**
+   * Decrypts paymentDetails for DEPOSIT orders — returns trader's card/phone
+   * so the merchant knows where to send money.
+   * Handles both new (encrypted) and old (plaintext) DB formats.
+   */
+  private decryptPaymentDetails(json: Prisma.JsonValue | null): Record<string, unknown> | null {
+    if (!json || typeof json !== 'object') return null;
+    const data = json as Record<string, unknown>;
+    // SBP — phone stored in plain text
+    if (data['method'] === 'SBP') return data;
+    // CARD — handle both encrypted and plaintext formats
+    if (data['cardNumberEncrypted'] && typeof data['cardNumberEncrypted'] === 'string') {
+      // New format: card is encrypted
+      try {
+        (data as any)['cardNumber'] = CryptoUtil.decrypt(data['cardNumberEncrypted'] as string, this.cfg.encryptionKey);
+      } catch {
+        (data as any)['cardNumber'] = null;
+      }
+      delete (data as any)['cardNumberEncrypted'];
+    }
+    // Old format: cardNumber already in plaintext — return as-is
+    return data;
+  }
+
   private async logEvent(orderId: string, type: string, payload: Record<string, unknown>): Promise<void> {
     await this.prisma.orderEvent
       .create({ data: { orderId, type, payload: payload as Prisma.InputJsonValue } })
@@ -893,7 +916,7 @@ export class OrdersService implements OnModuleInit {
       merchantOrderId: order.merchantOrderId,
       description: order.description,
       metadata: order.metadata ?? null,
-      paymentDetails: order.paymentDetails ?? null,
+      paymentDetails: this.decryptPaymentDetails(order.paymentDetails),
       payoutRequisites:
         order.type === 'WITHDRAWAL' && order.status === 'ASSIGNED'
           ? this.decryptPayoutRequisites(order.payoutRequisites)
