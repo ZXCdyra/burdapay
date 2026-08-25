@@ -22,6 +22,11 @@ import { AntifraudService } from '../antifraud/antifraud.service';
 import { WebhooksService, WebhookEvent } from '../webhooks/webhooks.service';
 
 const MAX_REROUTES = 2;
+const OPEN_STATUSES: OrderStatus[] = ['PENDING', 'ASSIGNED', 'DISPUTED'];
+
+function todayStartUtc(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
 
 type Tx = Prisma.TransactionClient;
 
@@ -97,10 +102,7 @@ export class OrdersService implements OnModuleInit {
         async (tx: Tx) => {
           const trader = await this.routing.pickAndLock(tx, { method: dto.method, amount, type: 'DEPOSIT' });
 
-          const requisite = await tx.traderRequisite.findFirst({
-            where: { traderId: trader.id, method: dto.method, isActive: true },
-            orderBy: { createdAt: 'asc' },
-          });
+          const requisite = await this.pickRequisite(tx, trader.id, dto.method, amount);
           if (!requisite) throw new RoutingFailedError();
 
           const feeMerchant = this.fee(amount, merchant.feePercent);
@@ -110,6 +112,7 @@ export class OrdersService implements OnModuleInit {
             data: {
               merchantId: merchant.id,
               traderId: trader.id,
+              requisiteId: requisite.id,
               type: 'DEPOSIT',
               method: dto.method,
               amount,
@@ -305,11 +308,9 @@ export class OrdersService implements OnModuleInit {
               feePlatform: order.feeMerchant.add(this.fee(order.amount, newTrader.feePercent)),
             };
             if (order.type === 'DEPOSIT') {
-              const requisite = await tx.traderRequisite.findFirst({
-                where: { traderId: newTrader.id, method: order.method, isActive: true },
-                orderBy: { createdAt: 'asc' },
-              });
+              const requisite = await this.pickRequisite(tx, newTrader.id, order.method, order.amount);
               if (requisite) {
+                updateData.requisiteId = requisite.id;
                 updateData.paymentDetails = this.buildPaymentDetails(
                   requisite,
                   order.amount,
@@ -462,6 +463,36 @@ export class OrdersService implements OnModuleInit {
     return this.sanitize(cancelled);
   }
 
+  async openDisputeByTrader(traderId: string, orderId: string, reason?: string): Promise<SanitizedOrder> {
+    const disputed = await this.prisma.$transaction(
+      async (tx: Tx) => {
+        const order = await tx.order.findUnique({ where: { id: orderId } });
+        if (!order || order.traderId !== traderId) throw new NotFoundException('Order not found');
+        if (order.type !== 'DEPOSIT') throw new BadRequestException('Disputes are only supported on deposit orders');
+
+        const res = await tx.order.updateMany({
+          where: { id: orderId, status: 'ASSIGNED', traderId },
+          data: { status: 'DISPUTED' },
+        });
+        if (res.count === 0) throw new ConflictException('Only ASSIGNED orders can be disputed');
+
+        return tx.order.findUniqueOrThrow({ where: { id: orderId } });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
+    await this.logEvent(orderId, 'ORDER_DISPUTED', { traderId, reason });
+    this.events.emitToUser('MERCHANT', disputed.merchantId, 'order.updated', this.sanitize(disputed));
+    this.events.emitToAdmins('order.disputed', this.sanitize(disputed));
+    this.events.emitToUser('TRADER', traderId, 'order.updated', this.forTrader(disputed));
+    await this.webhooks.dispatch(
+      'order.disputed',
+      this.webhooks.buildOrderPayload('order.disputed', disputed),
+      disputed.merchantId,
+    );
+    return this.sanitize(disputed);
+  }
+
   async adminResolve(
     orderId: string,
     action: 'complete' | 'cancel',
@@ -472,13 +503,13 @@ export class OrdersService implements OnModuleInit {
       async (tx: Tx) => {
         const order = await tx.order.findUnique({ where: { id: orderId } });
         if (!order) throw new NotFoundException('Order not found');
-        if (!['PENDING', 'ASSIGNED'].includes(order.status)) {
+        if (!OPEN_STATUSES.includes(order.status)) {
           throw new ConflictException(`Order already terminal (${order.status})`);
         }
 
         if (action === 'complete') {
           const res = await tx.order.updateMany({
-            where: { id: orderId, status: { in: ['PENDING', 'ASSIGNED'] } },
+            where: { id: orderId, status: { in: OPEN_STATUSES } },
             data: { status: 'COMPLETED', completedAt: new Date() },
           });
           if (res.count === 0) throw new ConflictException('State race on complete');
@@ -505,7 +536,7 @@ export class OrdersService implements OnModuleInit {
           }
         } else {
           const res = await tx.order.updateMany({
-            where: { id: orderId, status: { in: ['PENDING', 'ASSIGNED'] } },
+            where: { id: orderId, status: { in: OPEN_STATUSES } },
             data: {
               status: 'CANCELLED',
               cancelledAt: new Date(),
@@ -650,6 +681,53 @@ export class OrdersService implements OnModuleInit {
       order.feePlatform,
       order.feePlatform,
       'Platform fees',
+    );
+
+    await this.touchRequisiteAfterCompletion(tx, order);
+  }
+
+  private async touchRequisiteAfterCompletion(tx: Tx, order: Order): Promise<void> {
+    if (!order.requisiteId) return;
+    const requisite = await tx.traderRequisite.findUnique({ where: { id: order.requisiteId } });
+    if (!requisite) return;
+
+    const now = new Date();
+    const sameDay = Boolean(requisite.usageDay && requisite.usageDay >= todayStartUtc(now));
+    await tx.traderRequisite.update({
+      where: { id: requisite.id },
+      data: {
+        usedToday: sameDay ? { increment: order.amount } : order.amount,
+        usageDay: sameDay ? requisite.usageDay : now,
+        cooldownUntil: new Date(now.getTime() + requisite.cooldownSec * 1000),
+      },
+    });
+  }
+
+  private async pickRequisite(
+    tx: Tx,
+    traderId: string,
+    method: PaymentMethod,
+    amount: Prisma.Decimal,
+  ) {
+    const now = new Date();
+    const dayStart = todayStartUtc(now);
+    const candidates = await tx.traderRequisite.findMany({
+      where: {
+        traderId,
+        method,
+        isActive: true,
+        OR: [{ cooldownUntil: null }, { cooldownUntil: { lte: now } }],
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return (
+      candidates.find((r) => {
+        if (r.cooldownUntil && r.cooldownUntil > now) return false;
+        if (r.dailyLimit === null) return true;
+        const used = r.usageDay && r.usageDay >= dayStart ? r.usedToday : new Prisma.Decimal(0);
+        return used.plus(amount).lte(r.dailyLimit);
+      }) ?? null
     );
   }
 

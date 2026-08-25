@@ -40,6 +40,11 @@ const UpdateTraderSchema = z.object({
   dealCooldownSeconds: z.number().int().min(0).optional(),
 });
 
+const RequisiteLimits = {
+  dailyLimit: z.number().positive().optional(),
+  cooldownSec: z.number().int().min(0).max(86400).optional(),
+};
+
 const CreateRequisiteSchema = z.discriminatedUnion('method', [
   z.object({
     method: z.literal('CARD'),
@@ -47,6 +52,7 @@ const CreateRequisiteSchema = z.discriminatedUnion('method', [
     bankName: z.string().min(2).max(60),
     receiverName: z.string().min(2).max(120),
     cardNumber: z.string().min(13).max(25),
+    ...RequisiteLimits,
   }),
   z.object({
     method: z.literal('SBP'),
@@ -54,6 +60,7 @@ const CreateRequisiteSchema = z.discriminatedUnion('method', [
     bankName: z.string().min(2).max(60),
     receiverName: z.string().min(2).max(120),
     phone: z.string().min(10).max(20),
+    ...RequisiteLimits,
   }),
 ]);
 
@@ -144,6 +151,8 @@ export class TradersController {
           receiverName: dto.receiverName,
           cardNumberEncrypted: CryptoUtil.encrypt(validated.normalized, this.cfg.encryptionKey),
           cardLast4: validated.last4,
+          ...(dto.dailyLimit !== undefined ? { dailyLimit: new Prisma.Decimal(dto.dailyLimit) } : {}),
+          ...(dto.cooldownSec !== undefined ? { cooldownSec: dto.cooldownSec } : {}),
         },
       });
 
@@ -192,6 +201,8 @@ export class TradersController {
         bankName: dto.bankName,
         receiverName: dto.receiverName,
         sbpPhone: phone,
+        ...(dto.dailyLimit !== undefined ? { dailyLimit: new Prisma.Decimal(dto.dailyLimit) } : {}),
+        ...(dto.cooldownSec !== undefined ? { cooldownSec: dto.cooldownSec } : {}),
       },
     });
 

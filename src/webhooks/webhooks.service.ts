@@ -12,6 +12,7 @@ export type WebhookEvent =
   | 'order.completed'
   | 'order.expired'
   | 'order.cancelled'
+  | 'order.disputed'
   | 'order.failed';
   
 // allow trader-related events

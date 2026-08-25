@@ -56,6 +56,16 @@ export class OrdersTraderController {
     return this.orders.confirmDepositByTrader(user.id, orderId, dto);
   }
 
+  @Post(':orderId/dispute')
+  @ApiOperation({ summary: 'Open a dispute on an ASSIGNED order (freezes it for admin review)' })
+  dispute(
+    @CurrentUser() user: AuthUser,
+    @Param('orderId') orderId: string,
+    @Body(new ZodValidationPipe(TraderActionSchema)) dto: z.infer<typeof TraderActionSchema>,
+  ) {
+    return this.orders.openDisputeByTrader(user.id, orderId, dto.reason);
+  }
+
   @Post(':orderId/mark-paid')
   @ApiOperation({ summary: 'Mark withdrawal paid out (ASSIGNED -> COMPLETED)' })
   markPaid(

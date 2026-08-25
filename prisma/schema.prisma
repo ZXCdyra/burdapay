@@ -168,6 +168,11 @@ model TraderRequisite {
   cardLast4            String?
   sbpPhone             String?
   isActive             Boolean       @default(true)
+  dailyLimit           Decimal?      @db.Decimal(18, 2)
+  usedToday            Decimal       @default(0) @db.Decimal(18, 2)
+  usageDay             DateTime?
+  cooldownSec          Int           @default(600)
+  cooldownUntil        DateTime?
   createdAt            DateTime      @default(now())
 
   trader Trader @relation(fields: [traderId], references: [id], onDelete: Cascade)
@@ -203,6 +208,7 @@ model Order {
   id                String        @id @default(cuid())
   merchantId        String
   traderId          String?
+  requisiteId       String?
   type              OrderType
   method            PaymentMethod
   amount            Decimal       @db.Decimal(18, 2)
