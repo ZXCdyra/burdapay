@@ -340,6 +340,9 @@ describe('OrdersService', () => {
 
   describe('acceptByTrader', () => {
     it('переводит PENDING → ASSIGNED и шлёт вебхук order.assigned', async () => {
+      db.order.findUnique.mockResolvedValue(
+        makeOrder({ status: 'PENDING', createdAt: new Date() }),
+      );
       const assigned = makeOrder({ status: 'ASSIGNED' });
       db.order.updateMany.mockResolvedValueOnce({ count: 1 });
       db.order.findUniqueOrThrow.mockResolvedValueOnce(assigned);
@@ -355,8 +358,23 @@ describe('OrdersService', () => {
     });
 
     it('ConflictException если ордер не в PENDING', async () => {
+      db.order.findUnique.mockResolvedValue(
+        makeOrder({ status: 'ASSIGNED', createdAt: new Date() }),
+      );
       db.order.updateMany.mockResolvedValueOnce({ count: 0 });
       await expect(service.acceptByTrader('t-1', 'ord-1')).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('NotFoundException если ордер чужой или не существует', async () => {
+      db.order.findUnique.mockResolvedValue(null);
+      await expect(service.acceptByTrader('t-1', 'ord-1')).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('ConflictException если истекло окно приёма (10 мин)', async () => {
+      db.order.findUnique.mockResolvedValue(
+        makeOrder({ status: 'PENDING', createdAt: new Date(Date.now() - 11 * 60_000) }),
+      );
+      await expect(service.acceptByTrader('t-1', 'ord-1')).rejects.toThrow('Acceptance window expired');
     });
   });
 
