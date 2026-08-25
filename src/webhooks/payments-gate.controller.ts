@@ -1,4 +1,4 @@
-import { Controller, Post, Req, Res, HttpCode, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Req, Res, Param, HttpCode, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
@@ -11,6 +11,57 @@ export class PaymentsGateController {
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
   ) {}
+
+  @Get('order/:orderId')
+  @HttpCode(200)
+  async getOrderPaymentDetails(@Param('orderId') orderId: string, @Res() res: Response) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        trader: { select: { traderCode: true, displayName: true } },
+        traderRequisite: true,
+      },
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // If paymentDetails is null, generate from requisite
+    let paymentDetails = order.paymentDetails;
+    if (!paymentDetails && order.traderRequisite) {
+      const refCode = `PF-${order.id.slice(-8).toUpperCase()}`;
+      const req = order.traderRequisite;
+      if (req.method === 'CARD') {
+        paymentDetails = {
+          method: 'CARD',
+          bank: req.bankName,
+          receiver: req.receiverName,
+          cardLast4: req.cardLast4,
+          amount: order.amount.toFixed(2),
+          comment: refCode,
+        };
+      } else {
+        paymentDetails = {
+          method: 'SBP',
+          bank: req.bankName,
+          receiver: req.receiverName,
+          phone: req.sbpPhone,
+          amount: order.amount.toFixed(2),
+          comment: refCode,
+        };
+      }
+    }
+
+    return res.json({
+      id: order.id,
+      type: order.type,
+      method: order.method,
+      amount: order.amount.toFixed(2),
+      currency: order.currency,
+      status: order.status,
+      merchantOrderId: order.merchantOrderId,
+      paymentDetails,
+      traderCode: order.trader?.traderCode ?? null,
+    });
+  }
 
   @Post('webhook')
   @HttpCode(200)
