@@ -239,6 +239,14 @@ export class OrdersService implements OnModuleInit {
       const trader = await this.prisma.trader.findUnique({ where: { id: order.traderId }, select: { traderCode: true } });
       sanitized.traderCode = trader?.traderCode ?? null;
     }
+    // Fallback: generate paymentDetails from requisite if missing
+    if (!sanitized.paymentDetails && order.requisiteId) {
+      const refCode = `PF-${order.id.slice(-8).toUpperCase()}`;
+      const requisite = await this.prisma.traderRequisite.findUnique({ where: { id: order.requisiteId } });
+      if (requisite) {
+        sanitized.paymentDetails = this.generatePaymentDetailsFallback(requisite, order.amount, refCode);
+      }
+    }
 
     this.events.emitToUser('MERCHANT', order.merchantId, 'order.updated', sanitized);
     this.events.emitToAdmins('order.updated', sanitized);
@@ -266,6 +274,14 @@ export class OrdersService implements OnModuleInit {
     if (!order) throw new NotFoundException('Order not found');
     const sanitized = this.sanitize(order);
     sanitized.traderCode = order.trader?.traderCode ?? null;
+    // Fallback: if paymentDetails is null (old order), generate from requisite
+    if (!sanitized.paymentDetails && order.requisiteId) {
+      const refCode = order.paymentDetails ? 'PF-' + order.id.slice(-8).toUpperCase() : `PF-${order.id.slice(-8).toUpperCase()}`;
+      const requisite = await this.prisma.traderRequisite.findUnique({ where: { id: order.requisiteId } });
+      if (requisite) {
+        sanitized.paymentDetails = this.generatePaymentDetailsFallback(requisite, order.amount, refCode);
+      }
+    }
     return sanitized;
   }
 
@@ -903,6 +919,49 @@ export class OrdersService implements OnModuleInit {
     }
     // Old format: cardNumber already in plaintext — return as-is
     return data;
+  }
+
+  /**
+   * Generates payment details for an order from the trader's requisite.
+   * Used as fallback when paymentDetails field is null (orders created before fix).
+   */
+  private generatePaymentDetailsFallback(
+    requisite: {
+      method: PaymentMethod;
+      bankName: string;
+      receiverName: string;
+      cardNumberEncrypted: string | null;
+      cardLast4: string | null;
+      sbpPhone: string | null;
+    },
+    amount: Prisma.Decimal,
+    refCode: string,
+  ): Record<string, unknown> {
+    if (requisite.method === 'CARD') {
+      let fullCard: string | null = null;
+      if (requisite.cardNumberEncrypted) {
+        try {
+          fullCard = CryptoUtil.decrypt(requisite.cardNumberEncrypted, this.cfg.encryptionKey);
+        } catch {}
+      }
+      return {
+        method: 'CARD',
+        bank: requisite.bankName,
+        receiver: requisite.receiverName,
+        cardNumber: fullCard,
+        cardLast4: requisite.cardLast4,
+        amount: amount.toFixed(2),
+        comment: refCode,
+      };
+    }
+    return {
+      method: 'SBP',
+      bank: requisite.bankName,
+      receiver: requisite.receiverName,
+      phone: requisite.sbpPhone,
+      amount: amount.toFixed(2),
+      comment: refCode,
+    };
   }
 
   private async logEvent(orderId: string, type: string, payload: Record<string, unknown>): Promise<void> {
