@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { PaymentMethod } from '@prisma/client';
 import { CryptoUtil } from '../common/utils/crypto.util';
-import { detectCardBrand } from './payment-methods.constants';
+import { CARD_BRANDS, detectCardBrand } from './payment-methods.constants';
 
 export function luhnValid(cardNumber: string): boolean {
   const digits = cardNumber.replace(/\D/g, '');
@@ -46,10 +46,13 @@ export function validateCardOrThrow(cardNumber: string, pepper: string): Validat
   if (!/^\d{13,19}$/.test(normalized)) {
     throw new BadRequestException('Card number must contain 13-19 digits');
   }
-  if (!luhnValid(normalized)) {
-    throw new BadRequestException('Card number failed Luhn check');
-  }
+  // Luhn не блокирует: карта может быть синтетической/с опечаткой — решение принимает оператор
   const brand = detectCardBrand(normalized);
+  if (brand === 'UNKNOWN') {
+    throw new BadRequestException(
+      `Unsupported card BIN. Supported brands: ${CARD_BRANDS.join(', ')}`,
+    );
+  }
   const { last4, masked } = maskCard(normalized);
   return { normalized, brand, last4, masked, hash: hashCard(normalized, pepper) };
 }

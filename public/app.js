@@ -14,7 +14,15 @@ const PF = {
     });
     if (res.status === 401) { PF.logout(); throw new Error('Сессия истекла'); }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.message || res.statusText);
+    if (!res.ok) {
+      let msg = data.message || res.statusText;
+      const fe = data.errors && data.errors.fieldErrors;
+      if (fe) {
+        const parts = Object.entries(fe).map(([f, v]) => `${f}: ${Array.isArray(v) ? v.join(', ') : v}`);
+        if (parts.length) msg += ' (' + parts.join('; ') + ')';
+      }
+      throw new Error(msg);
+    }
     return data;
   },
 

@@ -223,9 +223,9 @@ async function viewRequisites(v) {
     document.getElementById('cardFields').classList.toggle('hidden', this.value !== 'CARD');
     document.getElementById('sbpFields').classList.toggle('hidden', this.value !== 'SBP')">
     <option value="CARD">CARD</option><option value="SBP">SBP</option></select></label>
-  <label>Банк<input id="rqBank" placeholder="Sberbank / T-Bank / Alpha-Bank"></label>
-  <label>Получатель<input id="rqReceiver" placeholder="IVAN IVANOV"></label>
-  <div id="cardFields"><label>Номер карты<input id="rqCard" placeholder="4276XXXXXXXXXXXX"></label></div>
+  <label>Банк<input id="rqBank" required minlength="2" maxlength="60" placeholder="Sberbank / T-Bank / Alpha-Bank"></label>
+  <label>Получатель<input id="rqReceiver" required minlength="2" maxlength="120" placeholder="IVAN IVANOV"></label>
+  <div id="cardFields"><label>Номер карты<input id="rqCard" required inputmode="numeric" autocomplete="off" maxlength="23" placeholder="4276 5555 1234 5678"></label></div>
   <div id="sbpFields" class="hidden"><label>Телефон СБП<input id="rqPhone" placeholder="+79001234567"></label></div>
   <button onclick="addReq()">Добавить</button>
   <p class="sub" style="margin-top:12px;margin-bottom:0">Номер карты шифруется AES-256-GCM и никогда не показывается полностью.</p></div>
