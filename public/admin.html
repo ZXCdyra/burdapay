@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PayFlow — Админ-панель</title>
+<title>PayFlow вЂ” РђРґРјРёРЅ-РїР°РЅРµР»СЊ</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/style.css?v=5">
+<link rel="stylesheet" href="/style.css?v=6">
 <script src="/vendor/socket.io.min.js"></script>
 </head>
 <body>
@@ -15,7 +15,7 @@
     <div class="hdr-right">
       <span class="badge ADMIN" id="roleBadge">ADMIN</span>
       <span style="color:var(--muted);font-size:13px" id="whoami"></span>
-      <button class="ghost" onclick="PF.logout()">Выйти</button>
+      <button class="ghost" onclick="PF.logout()">Р’С‹Р№С‚Рё</button>
     </div>
   </header>
   <div class="content">
@@ -25,11 +25,11 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="/app.js?v=5"></script>
+<script src="/app.js?v=6"></script>
 <script>
 const TABS = ['dashboard', 'orders', 'merchants', 'traders', 'users', 'deposits', 'blacklist', 'webhooks', 'fraud'];
-const LABELS = { dashboard:'Обзор', orders:'Ордера', merchants:'Мерчанты', traders:'Трейдеры', users:'Пользователи',
-  deposits:'Пополнения', blacklist:'Блэклист', webhooks:'Вебхуки', fraud:'Антифрод' };
+const LABELS = { dashboard:'РћР±Р·РѕСЂ', orders:'РћСЂРґРµСЂР°', merchants:'РњРµСЂС‡Р°РЅС‚С‹', traders:'РўСЂРµР№РґРµСЂС‹', users:'РџРѕР»СЊР·РѕРІР°С‚РµР»Рё',
+  deposits:'РџРѕРїРѕР»РЅРµРЅРёСЏ', blacklist:'Р‘Р»СЌРєР»РёСЃС‚', webhooks:'Р’РµР±С…СѓРєРё', fraud:'РђРЅС‚РёС„СЂРѕРґ' };
 let tab = 'dashboard';
 
 (async () => {
@@ -46,16 +46,16 @@ let tab = 'dashboard';
   }
   render();
   PF.connectWS({
-    onOrderUpdated: (o) => { PF.toast(`Ордер …${o.id.slice(-8)} → ${o.status}`); if (tab === 'orders' || tab === 'dashboard') render(); },
+    onOrderUpdated: (o) => { PF.toast(`РћСЂРґРµСЂ вЂ¦${o.id.slice(-8)} в†’ ${o.status}`); if (tab === 'orders' || tab === 'dashboard') render(); },
     onNewOrder: () => render(),
-    onUserCreated: (u) => { if (tab === 'users') render(); else PF.toast(`Новый пользователь: ${u.email || u.name}`); },
+    onUserCreated: (u) => { if (tab === 'users') render(); else PF.toast(`РќРѕРІС‹Р№ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ: ${u.email || u.name}`); },
   });
 })();
 
 async function render() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   const v = document.getElementById('view');
-  v.innerHTML = '<div class="empty">Загрузка…</div>';
+  v.innerHTML = '<div class="empty">Р—Р°РіСЂСѓР·РєР°вЂ¦</div>';
   try {
     if (tab === 'dashboard') await viewDashboard(v);
     else if (tab === 'orders') await viewOrders(v);
@@ -71,208 +71,208 @@ async function render() {
 
 async function viewDeposits(v) {
   const list = await PF.api('/admin/deposits');
-  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Заявки на пополнение (${list.length})</h2>
-    <button class="ghost" onclick="render()">⟳</button></div>${PF.table(['ID','Trader','Account','Сумма','Адрес','Tx','Статус','Создан','Действия'], list.map((d) => `
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Р—Р°СЏРІРєРё РЅР° РїРѕРїРѕР»РЅРµРЅРёРµ (${list.length})</h2>
+    <button class="ghost" onclick="render()">вџі</button></div>${PF.table(['ID','Trader','Account','РЎСѓРјРјР°','РђРґСЂРµСЃ','Tx','РЎС‚Р°С‚СѓСЃ','РЎРѕР·РґР°РЅ','Р”РµР№СЃС‚РІРёСЏ'], list.map((d) => `
     <tr><td class="mono">${d.id.slice(-8)}</td><td class="mono">${d.traderId.slice(-6)}</td><td class="mono">${d.trader?.accountId || ''}</td>
     <td>${PF.money(d.amount)}</td><td class="mono">${PF.esc(d.address)}</td><td class="mono">${PF.esc(d.txHash || '')}</td>
     <td class="mono">${d.status}</td><td>${PF.dt(d.createdAt)}</td>
-    <td class="row">${d.status === 'PENDING' ? `<button class="green" onclick="approveDeposit('${d.id}')">Одобрить</button>
-      <button class="red" onclick="rejectDeposit('${d.id}')">Отклонить</button>` : ''}</td></tr>`))}</div>`;
+    <td class="row">${d.status === 'PENDING' ? `<button class="green" onclick="approveDeposit('${d.id}')">РћРґРѕР±СЂРёС‚СЊ</button>
+      <button class="red" onclick="rejectDeposit('${d.id}')">РћС‚РєР»РѕРЅРёС‚СЊ</button>` : ''}</td></tr>`))}</div>`;
 }
 
 async function approveDeposit(id) {
-  if (!confirm('Одобрить пополнение?')) return;
+  if (!confirm('РћРґРѕР±СЂРёС‚СЊ РїРѕРїРѕР»РЅРµРЅРёРµ?')) return;
   await PF.api('/admin/deposits/' + id + '/approve', { method: 'POST' });
-  PF.toast('Одобрено'); render();
+  PF.toast('РћРґРѕР±СЂРµРЅРѕ'); render();
 }
 
 async function rejectDeposit(id) {
-  const reason = prompt('Причина отклонения (опционально):') || undefined;
+  const reason = prompt('РџСЂРёС‡РёРЅР° РѕС‚РєР»РѕРЅРµРЅРёСЏ (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ):') || undefined;
   await PF.api('/admin/deposits/' + id + '/reject', { method: 'POST', body: JSON.stringify({ reason }) });
-  PF.toast('Отклонено'); render();
+  PF.toast('РћС‚РєР»РѕРЅРµРЅРѕ'); render();
 }
 
 async function viewUsers(v) {
   const list = await PF.api('/admin/users');
-  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Пользователи (${list.length})</h2>
-    <button class="ghost" onclick="render()">⟳</button></div>${PF.table(['Роль','Имя','Email','Статус','Создан','Действия'], list.map((u) => `
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>РџРѕР»СЊР·РѕРІР°С‚РµР»Рё (${list.length})</h2>
+    <button class="ghost" onclick="render()">вџі</button></div>${PF.table(['Р РѕР»СЊ','РРјСЏ','Email','РЎС‚Р°С‚СѓСЃ','РЎРѕР·РґР°РЅ','Р”РµР№СЃС‚РІРёСЏ'], list.map((u) => `
     <tr><td class="mono">${u.role}</td><td>${PF.esc(u.name || '')}</td><td>${PF.esc(u.email)}</td>
     <td class="mono">${u.status ?? ''}</td><td>${PF.dt(u.createdAt)}</td>
-    <td class="row">${u.role === 'TRADER' ? `<button class="ghost" onclick="impersonate('${u.id}')">Войти</button>` : ''}</td></tr>`))}</div>`;
+    <td class="row">${u.role === 'TRADER' ? `<button class="ghost" onclick="impersonate('${u.id}')">Р’РѕР№С‚Рё</button>` : ''}</td></tr>`))}</div>`;
 }
 
 async function impersonate(id) {
-  alert('Функция входа за пользователя не реализована в этом демо');
+  alert('Р¤СѓРЅРєС†РёСЏ РІС…РѕРґР° Р·Р° РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅР° РІ СЌС‚РѕРј РґРµРјРѕ');
 }
 
 async function viewDashboard(v) {
   const s = await PF.api('/admin/stats');
   v.innerHTML = `<div class="grid">
-    ${PF.statCard('Комиссия платформы', s.platformFeesEarned + ' ₽', 'var(--green)')}
-    ${PF.statCard('Оборот завершённых', s.completedVolume + ' ₽')}
-    ${PF.statCard('Завершено ордеров', s.completedOrders, 'var(--cyan)')}
-    ${PF.statCard('Активные мерчанты', s.activeMerchants)}
-    ${PF.statCard('Онлайн трейдеры', s.onlineTraders, 'var(--green)')}
-    ${PF.statCard('Фрод-события за 24ч', s.fraudEventsLast24h, 'var(--yellow)')}
+    ${PF.statCard('РљРѕРјРёСЃСЃРёСЏ РїР»Р°С‚С„РѕСЂРјС‹', s.platformFeesEarned + ' в‚Ѕ', 'var(--green)')}
+    ${PF.statCard('РћР±РѕСЂРѕС‚ Р·Р°РІРµСЂС€С‘РЅРЅС‹С…', s.completedVolume + ' в‚Ѕ')}
+    ${PF.statCard('Р—Р°РІРµСЂС€РµРЅРѕ РѕСЂРґРµСЂРѕРІ', s.completedOrders, 'var(--cyan)')}
+    ${PF.statCard('РђРєС‚РёРІРЅС‹Рµ РјРµСЂС‡Р°РЅС‚С‹', s.activeMerchants)}
+    ${PF.statCard('РћРЅР»Р°Р№РЅ С‚СЂРµР№РґРµСЂС‹', s.onlineTraders, 'var(--green)')}
+    ${PF.statCard('Р¤СЂРѕРґ-СЃРѕР±С‹С‚РёСЏ Р·Р° 24С‡', s.fraudEventsLast24h, 'var(--yellow)')}
   </div>
-  <div style="margin-top:12px"><button class="green" onclick="createAdmin()">Создать администратора / саппорт</button></div>
-  <div class="card"><div class="panel-t"><h2>Ордера по статусам</h2></div>
+  <div style="margin-top:12px"><button class="green" onclick="createAdmin()">РЎРѕР·РґР°С‚СЊ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° / СЃР°РїРїРѕСЂС‚</button></div>
+  <div class="card"><div class="panel-t"><h2>РћСЂРґРµСЂР° РїРѕ СЃС‚Р°С‚СѓСЃР°Рј</h2></div>
   <div class="row">${Object.entries(s.ordersByStatus).map(([k, n]) =>
     `<span class="badge st-${k}" style="font-size:12px;padding:6px 12px">${k}: ${n}</span>`).join('')}</div></div>`;
 }
 
 async function createAdmin() {
-  const email = prompt('Email администратора:'); if (!email) return;
-  const password = prompt('Пароль (min 6):'); if (!password) return;
-  const name = prompt('Имя (опционально):') || undefined;
+  const email = prompt('Email Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°:'); if (!email) return;
+  const password = prompt('РџР°СЂРѕР»СЊ (min 6):'); if (!password) return;
+  const name = prompt('РРјСЏ (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ):') || undefined;
   await PF.api('/admin/admins', { method: 'POST', body: JSON.stringify({ email, password, name }) });
-  PF.toast('Админ создан'); render();
+  PF.toast('РђРґРјРёРЅ СЃРѕР·РґР°РЅ'); render();
 }
 
 async function viewOrders(v) {
   const list = await PF.api('/admin/orders');
-  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Все ордера (${list.length})</h2>
-    <button class="ghost" onclick="render()">⟳ Обновить</button></div>${
-    PF.table(['ID','Мерчант','Тип','Метод','Сумма ₽','Феe ₽','Статус','Создан','Действия'], list.map((o) => `
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Р’СЃРµ РѕСЂРґРµСЂР° (${list.length})</h2>
+    <button class="ghost" onclick="render()">вџі РћР±РЅРѕРІРёС‚СЊ</button></div>${
+    PF.table(['ID','РњРµСЂС‡Р°РЅС‚','РўРёРї','РњРµС‚РѕРґ','РЎСѓРјРјР° в‚Ѕ','Р¤Рµe в‚Ѕ','РЎС‚Р°С‚СѓСЃ','РЎРѕР·РґР°РЅ','Р”РµР№СЃС‚РІРёСЏ'], list.map((o) => `
     <tr><td class="mono">${o.id.slice(-8)}</td><td class="mono">${o.merchantId.slice(-6)}</td>
     <td>${o.type}</td><td>${o.method}</td><td>${PF.money(o.amount)}</td><td>${o.feePlatform}</td>
     <td class="st-${o.status}"><b>${o.status}</b></td><td>${PF.dt(o.createdAt)}</td>
     <td class="row">${['PENDING','ASSIGNED'].includes(o.status)
-      ? `<button class="green" onclick="resolve('${o.id}','complete')">Завершить</button>
-         <button class="red" onclick="resolve('${o.id}','cancel')">Отменить</button>
-         <button class="ghost" onclick="archiveOrder('${o.id}')">В архив</button>` : ''}</td></tr>`))}</div>`;
+      ? `<button class="green" onclick="resolve('${o.id}','complete')">Р—Р°РІРµСЂС€РёС‚СЊ</button>
+         <button class="red" onclick="resolve('${o.id}','cancel')">РћС‚РјРµРЅРёС‚СЊ</button>
+         <button class="ghost" onclick="archiveOrder('${o.id}')">Р’ Р°СЂС…РёРІ</button>` : ''}</td></tr>`))}</div>`;
 }
 async function resolve(id, action) {
-  if (action === 'cancel' && !confirm('Отменить ордер с возвратом средств мерчанту?')) return;
+  if (action === 'cancel' && !confirm('РћС‚РјРµРЅРёС‚СЊ РѕСЂРґРµСЂ СЃ РІРѕР·РІСЂР°С‚РѕРј СЃСЂРµРґСЃС‚РІ РјРµСЂС‡Р°РЅС‚Сѓ?')) return;
   await PF.api(`/admin/orders/${id}/resolve`, { method: 'POST', body: JSON.stringify({ action }) });
-  PF.toast('Готово'); render();
+  PF.toast('Р“РѕС‚РѕРІРѕ'); render();
 }
 
 async function archiveOrder(id) {
-  if (!confirm('Отправить ордер в архив?')) return;
+  if (!confirm('РћС‚РїСЂР°РІРёС‚СЊ РѕСЂРґРµСЂ РІ Р°СЂС…РёРІ?')) return;
   await PF.api(`/admin/orders/${id}/archive`, { method: 'POST' });
-  PF.toast('Отправлено в архив'); render();
+  PF.toast('РћС‚РїСЂР°РІР»РµРЅРѕ РІ Р°СЂС…РёРІ'); render();
 }
 
 async function viewMerchants(v) {
   const list = await PF.api('/admin/merchants');
-  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Мерчанты</h2>
-    <div class="row"><button class="ghost" onclick="render()">⟳</button>
-    <button class="green" onclick="createMerchant()">Добавить мерчанта</button></div></div>${
-    PF.table(['Имя','Email','Статус','Комиссия %','Баланс ₽','Действия'], list.map((m) => `
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>РњРµСЂС‡Р°РЅС‚С‹</h2>
+    <div class="row"><button class="ghost" onclick="render()">вџі</button>
+    <button class="green" onclick="createMerchant()">Р”РѕР±Р°РІРёС‚СЊ РјРµСЂС‡Р°РЅС‚Р°</button></div></div>${
+    PF.table(['РРјСЏ','Email','РЎС‚Р°С‚СѓСЃ','РљРѕРјРёСЃСЃРёСЏ %','Р‘Р°Р»Р°РЅСЃ в‚Ѕ','Р”РµР№СЃС‚РІРёСЏ'], list.map((m) => `
     <tr><td>${PF.esc(m.name)}</td><td>${PF.esc(m.email)}</td>
     <td class="${m.status === 'ACTIVE' ? 'st-COMPLETED' : 'st-FAILED'}"><b>${m.status}</b></td>
     <td>${m.feePercent}</td><td>${PF.money(m.balance)}</td>
     <td class="row">
       ${m.status !== 'ACTIVE'
-        ? `<button class="green" onclick="merchantPatch('${m.id}',{status:'ACTIVE'})">Активировать</button>`
+        ? `<button class="green" onclick="merchantPatch('${m.id}',{status:'ACTIVE'})">РђРєС‚РёРІРёСЂРѕРІР°С‚СЊ</button>`
         : `<button class="yellow" onclick="merchantPatch('${m.id}',{status:'SUSPENDED'})">Suspend</button>`}
-      <button class="ghost" onclick="editFee('${m.id}',${m.feePercent})">Комиссия %</button>
-      <button class="ghost" onclick="adjustBalance('MERCHANT','${m.id}')">Баланс ±</button>
+      <button class="ghost" onclick="editFee('${m.id}',${m.feePercent})">РљРѕРјРёСЃСЃРёСЏ %</button>
+      <button class="ghost" onclick="adjustBalance('MERCHANT','${m.id}')">Р‘Р°Р»Р°РЅСЃ В±</button>
       <button class="ghost" onclick="editWebhookUrl('${m.id}', '${PF.esc(m.webhookUrl || '')}')">Webhook URL</button>
-      <button class="ghost" onclick="regenCallbackSecret('${m.id}')">Callback-секрет ⟳</button>
+      <button class="ghost" onclick="regenCallbackSecret('${m.id}')">Callback-СЃРµРєСЂРµС‚ вџі</button>
     </td></tr>`))}</div>`;
 }
 async function merchantPatch(id, body) { await PF.api('/admin/merchants/' + id, { method: 'PATCH', body: JSON.stringify(body) }); PF.toast('OK'); render(); }
 async function editWebhookUrl(id, current) {
-  const url = prompt('Webhook URL мерчанта (куда слать события о заказах):', current);
+  const url = prompt('Webhook URL РјРµСЂС‡Р°РЅС‚Р° (РєСѓРґР° СЃР»Р°С‚СЊ СЃРѕР±С‹С‚РёСЏ Рѕ Р·Р°РєР°Р·Р°С…):', current);
   if (url === null) return;
   await merchantPatch(id, { webhookUrl: url || null });
 }
 async function regenCallbackSecret(id) {
-  if (!confirm('Перевыпустить callback-секрет? Старый перестанет работать.')) return;
+  if (!confirm('РџРµСЂРµРІС‹РїСѓСЃС‚РёС‚СЊ callback-СЃРµРєСЂРµС‚? РЎС‚Р°СЂС‹Р№ РїРµСЂРµСЃС‚Р°РЅРµС‚ СЂР°Р±РѕС‚Р°С‚СЊ.')) return;
   const r = await PF.api(`/admin/merchants/${id}/regenerate-callback-secret`, { method: 'POST' });
-  showSecret('Новый callback-секрет (покажется один раз):', r.callback_secret);
+  showSecret('РќРѕРІС‹Р№ callback-СЃРµРєСЂРµС‚ (РїРѕРєР°Р¶РµС‚СЃСЏ РѕРґРёРЅ СЂР°Р·):', r.callback_secret);
 }
 function showSecret(title, secret) {
   const w = window.open('', '_blank', 'width=640,height=320');
   if (!w) { prompt(title, secret); return; }
-  w.document.write(`<body style="font-family:monospace;padding:24px"><h3>${title}</h3><p style="word-break:break-all;font-size:16px">${secret}</p><button onclick="close()">Закрыть</button></body>`);
+  w.document.write(`<body style="font-family:monospace;padding:24px"><h3>${title}</h3><p style="word-break:break-all;font-size:16px">${secret}</p><button onclick="close()">Р—Р°РєСЂС‹С‚СЊ</button></body>`);
 }
 async function editFee(id, current) {
-  const fee = parseFloat(prompt('Новая комиссия мерчанта, %:', current));
+  const fee = parseFloat(prompt('РќРѕРІР°СЏ РєРѕРјРёСЃСЃРёСЏ РјРµСЂС‡Р°РЅС‚Р°, %:', current));
   if (!isNaN(fee)) { await merchantPatch(id, { feePercent: fee }); }
 }
 async function adjustBalance(type, id) {
-  const amount = parseFloat(prompt('Сумма корректировки (может быть отрицательной):'));
+  const amount = parseFloat(prompt('РЎСѓРјРјР° РєРѕСЂСЂРµРєС‚РёСЂРѕРІРєРё (РјРѕР¶РµС‚ Р±С‹С‚СЊ РѕС‚СЂРёС†Р°С‚РµР»СЊРЅРѕР№):'));
   if (isNaN(amount)) return;
   await PF.api('/admin/balance-adjust', { method: 'POST',
     body: JSON.stringify({ partyType: type, partyId: id, amount, memo: 'UI adjustment' }) });
-  PF.toast('Баланс изменён'); render();
+  PF.toast('Р‘Р°Р»Р°РЅСЃ РёР·РјРµРЅС‘РЅ'); render();
 }
 
 async function viewTraders(v) {
   const list = await PF.api('/admin/traders');
-  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Трейдеры</h2>
-    <div class="row"><button class="ghost" onclick="render()">⟳</button>
-    <button class="green" onclick="createTrader()">Добавить трейдера</button></div></div>${
-    PF.table(['Имя','Email','Статус','Online','CARD / SBP','Fee %','Баланс ₽','Success/Fail','Действия'], list.map((t) => `
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>РўСЂРµР№РґРµСЂС‹</h2>
+    <div class="row"><button class="ghost" onclick="render()">вџі</button>
+    <button class="green" onclick="createTrader()">Р”РѕР±Р°РІРёС‚СЊ С‚СЂРµР№РґРµСЂР°</button></div></div>${
+    PF.table(['РРјСЏ','Email','РЎС‚Р°С‚СѓСЃ','Online','CARD / SBP','Fee %','Р‘Р°Р»Р°РЅСЃ в‚Ѕ','Success/Fail','Р”РµР№СЃС‚РІРёСЏ'], list.map((t) => `
     <tr><td>${PF.esc(t.displayName)}</td><td>${PF.esc(t.email)}</td>
     <td class="${t.status === 'ACTIVE' ? 'st-COMPLETED' : 'st-FAILED'}"><b>${t.status}</b></td>
     <td>${t.isOnline ? 'online' : 'offline'}</td>
-    <td>${t.methodCard ? '✓' : '—'} / ${t.methodSbp ? '✓' : '—'}</td>
+    <td>${t.methodCard ? 'вњ“' : 'вЂ”'} / ${t.methodSbp ? 'вњ“' : 'вЂ”'}</td>
     <td>${t.feePercent}</td><td>${PF.money(t.balance)}</td>
     <td class="mono">${t.successCount}/${t.failCount}</td>
     <td class="row">${t.status === 'ACTIVE'
       ? `<button class="yellow" onclick="traderPatch('${t.id}',{status:'SUSPENDED'})">Suspend</button>`
-      : `<button class="green" onclick="traderPatch('${t.id}',{status:'ACTIVE',isOnline:true})">Одобрить</button>`}
-      <button class="ghost" onclick="adjustBalance('TRADER','${t.id}')">Баланс ±</button>
+      : `<button class="green" onclick="traderPatch('${t.id}',{status:'ACTIVE',isOnline:true})">РћРґРѕР±СЂРёС‚СЊ</button>`}
+      <button class="ghost" onclick="adjustBalance('TRADER','${t.id}')">Р‘Р°Р»Р°РЅСЃ В±</button>
     </td></tr>`))}</div>`;
 }
 async function traderPatch(id, body) { await PF.api('/admin/traders/' + id, { method: 'PATCH', body: JSON.stringify(body) }); PF.toast('OK'); render(); }
 
 async function createTrader() {
-  const email = prompt('Email трейдера:'); if (!email) return;
-  const password = prompt('Пароль (min 6):'); if (!password) return;
-  const displayName = prompt('Отображаемое имя:') || email.split('@')[0];
+  const email = prompt('Email С‚СЂРµР№РґРµСЂР°:'); if (!email) return;
+  const password = prompt('РџР°СЂРѕР»СЊ (min 6):'); if (!password) return;
+  const displayName = prompt('РћС‚РѕР±СЂР°Р¶Р°РµРјРѕРµ РёРјСЏ:') || email.split('@')[0];
   await PF.api('/admin/traders', { method: 'POST', body: JSON.stringify({ email, password, displayName }) });
-  PF.toast('Трейдер создан'); render();
+  PF.toast('РўСЂРµР№РґРµСЂ СЃРѕР·РґР°РЅ'); render();
 }
 
 async function createMerchant() {
-  const name = prompt('Название мерчанта:'); if (!name) return;
-  const email = prompt('Email мерчанта:'); if (!email) return;
-  const password = prompt('Пароль (min 6):'); if (!password) return;
+  const name = prompt('РќР°Р·РІР°РЅРёРµ РјРµСЂС‡Р°РЅС‚Р°:'); if (!name) return;
+  const email = prompt('Email РјРµСЂС‡Р°РЅС‚Р°:'); if (!email) return;
+  const password = prompt('РџР°СЂРѕР»СЊ (min 6):'); if (!password) return;
   const r = await PF.api('/admin/merchants', { method: 'POST', body: JSON.stringify({ name, email, password }) });
-  showSecret('Callback-секрет мерчанта (покажется один раз, сохраните!):', r.callback_secret);
+  showSecret('Callback-СЃРµРєСЂРµС‚ РјРµСЂС‡Р°РЅС‚Р° (РїРѕРєР°Р¶РµС‚СЃСЏ РѕРґРёРЅ СЂР°Р·, СЃРѕС…СЂР°РЅРёС‚Рµ!):', r.callback_secret);
   render();
 }
 
 async function viewBlacklist(v) {
   const list = await PF.api('/admin/blacklist');
-  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Добавить в блэклист</h2></div>
-    <label>Тип<select id="blKind"><option value="IP">IP</option><option value="CARD_HASH">CARD_HASH (sha256)</option><option value="DEVICE_ID">DEVICE_ID</option></select></label>
-    <label>Значение<input id="blValue" placeholder="1.2.3.4"></label>
-    <label>Причина<input id="blReason" placeholder="fraud suspicion"></label>
-    <button onclick="addBlacklist()">Добавить</button></div>
-    <div class="card">${PF.table(['Тип','Значение','Причина','Кем добавлено','Истекает'], list.map((b) => `
+  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Р”РѕР±Р°РІРёС‚СЊ РІ Р±Р»СЌРєР»РёСЃС‚</h2></div>
+    <label>РўРёРї<select id="blKind"><option value="IP">IP</option><option value="CARD_HASH">CARD_HASH (sha256)</option><option value="DEVICE_ID">DEVICE_ID</option></select></label>
+    <label>Р—РЅР°С‡РµРЅРёРµ<input id="blValue" placeholder="1.2.3.4"></label>
+    <label>РџСЂРёС‡РёРЅР°<input id="blReason" placeholder="fraud suspicion"></label>
+    <button onclick="addBlacklist()">Р”РѕР±Р°РІРёС‚СЊ</button></div>
+    <div class="card">${PF.table(['РўРёРї','Р—РЅР°С‡РµРЅРёРµ','РџСЂРёС‡РёРЅР°','РљРµРј РґРѕР±Р°РІР»РµРЅРѕ','РСЃС‚РµРєР°РµС‚'], list.map((b) => `
     <tr><td>${b.kind}</td><td class="mono">${PF.esc(b.value)}</td><td>${PF.esc(b.reason)}</td>
-    <td>${PF.esc(b.createdBy || '')}</td><td>${b.expiresAt ? PF.dt(b.expiresAt) : '∞'}</td></tr>`))}</div>`;
+    <td>${PF.esc(b.createdBy || '')}</td><td>${b.expiresAt ? PF.dt(b.expiresAt) : 'в€ћ'}</td></tr>`))}</div>`;
 }
 async function addBlacklist() {
   await PF.api('/admin/blacklist', { method: 'POST', body: JSON.stringify({
     kind: document.getElementById('blKind').value,
     value: document.getElementById('blValue').value.trim(),
     reason: document.getElementById('blReason').value.trim() || 'manual' }) });
-  PF.toast('Добавлено'); render();
+  PF.toast('Р”РѕР±Р°РІР»РµРЅРѕ'); render();
 }
 
 async function viewWebhooks(v) {
   const list = await PF.api('/admin/webhook-deliveries');
-  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Доставки вебхуков</h2>
-    <button class="ghost" onclick="render()">⟳</button></div>${
-    PF.table(['Время','Событие','Ордер','HTTP','Статус','Попытка','Ошибка'], list.map((w) => `
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Р”РѕСЃС‚Р°РІРєРё РІРµР±С…СѓРєРѕРІ</h2>
+    <button class="ghost" onclick="render()">вџі</button></div>${
+    PF.table(['Р’СЂРµРјСЏ','РЎРѕР±С‹С‚РёРµ','РћСЂРґРµСЂ','HTTP','РЎС‚Р°С‚СѓСЃ','РџРѕРїС‹С‚РєР°','РћС€РёР±РєР°'], list.map((w) => `
     <tr><td>${PF.dt(w.createdAt)}</td><td class="mono">${w.event}</td>
-    <td class="mono">${w.orderId ? w.orderId.slice(-8) : '—'}</td><td class="mono">${w.responseCode ?? '—'}</td>
+    <td class="mono">${w.orderId ? w.orderId.slice(-8) : 'вЂ”'}</td><td class="mono">${w.responseCode ?? 'вЂ”'}</td>
     <td class="st-${w.status}"><b>${w.status}</b></td><td>${w.attempt}</td>
     <td class="mono">${PF.esc(w.error ?? '')}</td></tr>`))}</div>`;
 }
 
 async function viewFraud(v) {
   const list = await PF.api('/admin/fraud-events');
-  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Антифрод-события</h2>
-    <button class="ghost" onclick="render()">⟳</button></div>${
-    PF.table(['Время','Правило','Severity','Детали'], list.map((f) => `
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>РђРЅС‚РёС„СЂРѕРґ-СЃРѕР±С‹С‚РёСЏ</h2>
+    <button class="ghost" onclick="render()">вџі</button></div>${
+    PF.table(['Р’СЂРµРјСЏ','РџСЂР°РІРёР»Рѕ','Severity','Р”РµС‚Р°Р»Рё'], list.map((f) => `
     <tr><td>${PF.dt(f.createdAt)}</td><td class="mono">${f.rule}</td>
     <td class="${f.severity === 'HIGH' ? 'st-FAILED' : 'st-PENDING'}">${f.severity}</td>
     <td class="mono" style="max-width:460px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${PF.esc(JSON.stringify(f.details))}</td></tr>`))}</div>`;

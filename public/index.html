@@ -1,23 +1,28 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PayFlow — вход</title>
+<title>PayFlow вЂ” РІС…РѕРґ</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/style.css?v=5">
+<link rel="stylesheet" href="/style.css?v=6">
 </head>
 <body>
 <div class="login-wrap">
   <div class="card login-card">
     <div class="logo">Pay<span>Flow</span></div>
-    <div class="sub">Платёжный процессинг · CARD / SBP</div>
+    <div class="sub">РџР»Р°С‚С‘Р¶РЅС‹Р№ РїСЂРѕС†РµСЃСЃРёРЅРі В· CARD / SBP</div>
     <form id="loginForm">
       <label>Email<input type="email" id="email" required placeholder="you@corp.io" autocomplete="username"></label>
-      <label>Пароль<input type="password" id="password" required placeholder="••••••••" autocomplete="current-password"></label>
-      <button style="width:100%" type="submit">Войти</button>
+      <label>РџР°СЂРѕР»СЊ<input type="password" id="password" required placeholder="вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў" autocomplete="current-password"></label>
+      <button style="width:100%" type="submit">Р’РѕР№С‚Рё</button>
     </form>
-    <p class="sub" style="margin:16px 0 0">Swagger API: <a href="/docs" target="_blank">/docs</a></p>
+    <div class="chips">
+      <span class="chip">CARD</span><span class="chip">SBP</span>
+      <span class="chip">REST API</span><span class="chip">Webhooks</span>
+      <span class="chip">Socket.IO</span>
+    </div>
+    <p class="sub" style="margin:18px 0 0">Swagger API: <a href="/docs" target="_blank">/docs</a></p>
   </div>
 </div>
 <script>
@@ -33,7 +38,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Ошибка входа');
+    if (!res.ok) throw new Error(data.message || 'РћС€РёР±РєР° РІС…РѕРґР°');
     localStorage.setItem('pf_token', data.accessToken);
     location.href = '/' + data.role.toLowerCase() + '.html';
   } catch (err) { alert(err.message); }

@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PayFlow — Кабинет мерчанта</title>
+<title>PayFlow вЂ” РљР°Р±РёРЅРµС‚ РјРµСЂС‡Р°РЅС‚Р°</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="/style.css?v=5">
+<link rel="stylesheet" href="/style.css?v=6">
 <script src="/vendor/socket.io.min.js"></script>
 </head>
 <body>
@@ -15,7 +15,7 @@
     <div class="hdr-right">
       <span class="badge MERCHANT" id="roleBadge">MERCHANT</span>
       <span style="color:var(--muted);font-size:13px" id="whoami"></span>
-      <button class="ghost" onclick="PF.logout()">Выйти</button>
+      <button class="ghost" onclick="PF.logout()">Р’С‹Р№С‚Рё</button>
     </div>
   </header>
   <nav id="nav"></nav>
@@ -23,10 +23,10 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="/app.js?v=5"></script>
+<script src="/app.js?v=6"></script>
 <script>
 const TABS = ['dashboard', 'orders', 'new-order', 'keys'];
-const LABELS = { dashboard:'Обзор', orders:'Ордера', 'new-order':'Создать ордер', keys:'API-ключи' };
+const LABELS = { dashboard:'РћР±Р·РѕСЂ', orders:'РћСЂРґРµСЂР°', 'new-order':'РЎРѕР·РґР°С‚СЊ РѕСЂРґРµСЂ', keys:'API-РєР»СЋС‡Рё' };
 let tab = 'dashboard';
 
 (async () => {
@@ -43,14 +43,14 @@ let tab = 'dashboard';
   }
   render();
   PF.connectWS({
-    onOrderUpdated: (o) => { PF.toast(`Ордер …${o.id.slice(-8)} → ${o.status}`); if (tab === 'orders') render(); },
+    onOrderUpdated: (o) => { PF.toast(`РћСЂРґРµСЂ вЂ¦${o.id.slice(-8)} в†’ ${o.status}`); if (tab === 'orders') render(); },
   });
 })();
 
 async function render() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   const v = document.getElementById('view');
-  v.innerHTML = '<div class="empty">Загрузка…</div>';
+  v.innerHTML = '<div class="empty">Р—Р°РіСЂСѓР·РєР°вЂ¦</div>';
   try {
     if (tab === 'dashboard') await viewDashboard(v);
     else if (tab === 'orders') await viewOrders(v);
@@ -66,13 +66,13 @@ async function viewDashboard(v) {
   const volume = completed.reduce((s, o) => s + Number(o.amount), 0);
   const pending = orders.filter((o) => ['PENDING','ASSIGNED'].includes(o.status)).length;
   v.innerHTML = `<div class="grid">
-    ${PF.statCard('Баланс', PF.money(me.balance) + ' ₽', Number(me.balance) < 0 ? 'var(--red)' : 'var(--green)')}
-    ${statCard2('Комиссия платформы', me.feePercent + '%')}
-    ${PF.statCard('Оборот (завершённые)', PF.money(volume) + ' ₽', 'var(--cyan)')}
-    ${PF.statCard('В работе', pending, 'var(--yellow)')}
+    ${PF.statCard('Р‘Р°Р»Р°РЅСЃ', PF.money(me.balance) + ' в‚Ѕ', Number(me.balance) < 0 ? 'var(--red)' : 'var(--green)')}
+    ${statCard2('РљРѕРјРёСЃСЃРёСЏ РїР»Р°С‚С„РѕСЂРјС‹', me.feePercent + '%')}
+    ${PF.statCard('РћР±РѕСЂРѕС‚ (Р·Р°РІРµСЂС€С‘РЅРЅС‹Рµ)', PF.money(volume) + ' в‚Ѕ', 'var(--cyan)')}
+    ${PF.statCard('Р’ СЂР°Р±РѕС‚Рµ', pending, 'var(--yellow)')}
   </div>
-  <div class="card"><div class="panel-t"><h2>Последние операции</h2></div>${
-    PF.table(['Время','Тип','Сумма','Баланс после'], ledger.slice(0, 12).map((l) => `
+  <div class="card"><div class="panel-t"><h2>РџРѕСЃР»РµРґРЅРёРµ РѕРїРµСЂР°С†РёРё</h2></div>${
+    PF.table(['Р’СЂРµРјСЏ','РўРёРї','РЎСѓРјРјР°','Р‘Р°Р»Р°РЅСЃ РїРѕСЃР»Рµ'], ledger.slice(0, 12).map((l) => `
     <tr><td>${PF.dt(l.createdAt)}</td><td class="mono">${l.kind}</td>
     <td style="color:${Number(l.amount) >= 0 ? 'var(--green)' : 'var(--red)'}">${Number(l.amount).toLocaleString('ru')}</td>
     <td>${Number(l.balanceAfter).toLocaleString('ru')}</td></tr>`))}</div>`;
@@ -81,9 +81,9 @@ function statCard2(t, val){ return `<div class="card stat"><h3>${t}</h3><div cla
 
 async function viewOrders(v) {
   const list = await PF.api('/merchant/orders');
-  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Мои ордера (${list.length})</h2>
-    <button class="ghost" onclick="render()">⟳ Обновить</button></div>${
-    PF.table(['ID','External','Тип','Метод','Сумма ₽','Fee ₽','Статус','Создан','Завершён'], list.map((o) => `
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>РњРѕРё РѕСЂРґРµСЂР° (${list.length})</h2>
+    <button class="ghost" onclick="render()">вџі РћР±РЅРѕРІРёС‚СЊ</button></div>${
+    PF.table(['ID','External','РўРёРї','РњРµС‚РѕРґ','РЎСѓРјРјР° в‚Ѕ','Fee в‚Ѕ','РЎС‚Р°С‚СѓСЃ','РЎРѕР·РґР°РЅ','Р—Р°РІРµСЂС€С‘РЅ'], list.map((o) => `
     <tr><td class="mono">${o.id.slice(-8)}</td><td class="mono">${PF.esc(o.merchantOrderId ?? '')}</td>
     <td>${o.type}</td><td>${o.method}</td><td>${PF.money(o.amount)}</td><td>${o.feeMerchant}</td>
     <td class="st-${o.status}"><b>${o.status}</b></td><td>${PF.dt(o.createdAt)}</td><td>${PF.dt(o.completedAt)}</td></tr>`))}</div>`;
@@ -91,15 +91,15 @@ async function viewOrders(v) {
 
 function viewNewOrder(v) {
   const idem = 'ui-' + Date.now();
-  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Ордер через API</h2></div>
-  <label>Public key (pk_…)<input id="pkKey" value="${sessionStorage.getItem('pf_pk') || ''}" placeholder="pk_..."></label>
-  <label>Тип<select id="ordType"><option value="DEPOSIT">DEPOSIT — приём платежа</option><option value="WITHDRAWAL">WITHDRAWAL — выплата</option></select></label>
-  <label>Метод<select id="ordMethod"><option value="CARD">CARD (Visa / Mastercard / МИР)</option><option value="SBP">SBP</option></select></label>
-  <label>Сумма ₽<input id="ordAmount" type="number" min="100" value="5000"></label>
+  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>РћСЂРґРµСЂ С‡РµСЂРµР· API</h2></div>
+  <label>Public key (pk_вЂ¦)<input id="pkKey" value="${sessionStorage.getItem('pf_pk') || ''}" placeholder="pk_..."></label>
+  <label>РўРёРї<select id="ordType"><option value="DEPOSIT">DEPOSIT вЂ” РїСЂРёС‘Рј РїР»Р°С‚РµР¶Р°</option><option value="WITHDRAWAL">WITHDRAWAL вЂ” РІС‹РїР»Р°С‚Р°</option></select></label>
+  <label>РњРµС‚РѕРґ<select id="ordMethod"><option value="CARD">CARD (Visa / Mastercard / РњРР )</option><option value="SBP">SBP</option></select></label>
+  <label>РЎСѓРјРјР° в‚Ѕ<input id="ordAmount" type="number" min="100" value="5000"></label>
   <label>Idempotency key<input id="ordIdem" value="${idem}"></label>
-  <button onclick="createOrder()">Отправить</button>
-  <pre id="ordOut" class="mono payout" style="margin-top:14px;color:var(--muted)">Ответ появится здесь…</pre>
-  <p class="sub" style="margin-top:14px;margin-bottom:0">Авторизация: заголовок <span class="mono">x-api-key: pk_…</span></p></div>`;
+  <button onclick="createOrder()">РћС‚РїСЂР°РІРёС‚СЊ</button>
+  <pre id="ordOut" class="mono payout" style="margin-top:14px;color:var(--muted)">РћС‚РІРµС‚ РїРѕСЏРІРёС‚СЃСЏ Р·РґРµСЃСЊвЂ¦</pre>
+  <p class="sub" style="margin-top:14px;margin-bottom:0">РђРІС‚РѕСЂРёР·Р°С†РёСЏ: Р·Р°РіРѕР»РѕРІРѕРє <span class="mono">x-api-key: pk_вЂ¦</span></p></div>`;
 }
 
 async function createOrder() {
@@ -117,17 +117,17 @@ async function createOrder() {
       body: JSON.stringify(body) });
     const data = await res.json();
     document.getElementById('ordOut').textContent = JSON.stringify(data, null, 2);
-    if (res.ok && !data.replayed) PF.toast('Ордер создан, трейдер назначен');
+    if (res.ok && !data.replayed) PF.toast('РћСЂРґРµСЂ СЃРѕР·РґР°РЅ, С‚СЂРµР№РґРµСЂ РЅР°Р·РЅР°С‡РµРЅ');
   } catch (e) { document.getElementById('ordOut').textContent = 'Error: ' + e.message; }
 }
 
 async function viewKeys(v) {
   const keys = await PF.api('/merchant/me/api-keys');
-  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Новый API-ключ</h2></div>
-  <label>Имя<input id="keyName" placeholder="production"></label>
-  <button onclick="createKey()">Создать</button>
+  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>РќРѕРІС‹Р№ API-РєР»СЋС‡</h2></div>
+  <label>РРјСЏ<input id="keyName" placeholder="production"></label>
+  <button onclick="createKey()">РЎРѕР·РґР°С‚СЊ</button>
   <div id="keyOut" class="mono" style="margin-top:12px;word-break:break-all"></div></div>
-  <div class="card">${PF.table(['Public key','Префикс секрета','Имя','Статус','Last used',''], keys.map((k) => `
+  <div class="card">${PF.table(['Public key','РџСЂРµС„РёРєСЃ СЃРµРєСЂРµС‚Р°','РРјСЏ','РЎС‚Р°С‚СѓСЃ','Last used',''], keys.map((k) => `
   <tr><td class="mono">${k.publicKey}</td><td class="mono">${k.secretPrefix}</td><td>${PF.esc(k.name)}</td>
   <td class="st-${k.status}"><b>${k.status}</b></td><td>${PF.dt(k.lastUsedAt)}</td>
   <td>${k.status === 'ACTIVE' ? `<button class="red" onclick="revokeKey('${k.id}')">Revoke</button>` : ''}</td></tr>`))}</div>`;
@@ -136,13 +136,13 @@ async function createKey() {
   const res = await PF.api('/merchant/me/api-keys', { method: 'POST',
     body: JSON.stringify({ name: document.getElementById('keyName').value.trim() || 'default' }) });
   document.getElementById('keyOut').innerHTML =
-    `publicKey: <b>${res.publicKey}</b><br>secret (показан один раз): <b>${res.secret}</b>`;
-  PF.toast('Ключ создан — сохраните secret сейчас');
+    `publicKey: <b>${res.publicKey}</b><br>secret (РїРѕРєР°Р·Р°РЅ РѕРґРёРЅ СЂР°Р·): <b>${res.secret}</b>`;
+  PF.toast('РљР»СЋС‡ СЃРѕР·РґР°РЅ вЂ” СЃРѕС…СЂР°РЅРёС‚Рµ secret СЃРµР№С‡Р°СЃ');
 }
 async function revokeKey(id) {
-  if (!confirm('Отозвать ключ? Интеграция с этим ключом перестанет работать.')) return;
+  if (!confirm('РћС‚РѕР·РІР°С‚СЊ РєР»СЋС‡? РРЅС‚РµРіСЂР°С†РёСЏ СЃ СЌС‚РёРј РєР»СЋС‡РѕРј РїРµСЂРµСЃС‚Р°РЅРµС‚ СЂР°Р±РѕС‚Р°С‚СЊ.')) return;
   await PF.api('/merchant/me/api-keys/' + id, { method: 'DELETE' });
-  PF.toast('Ключ отозван'); render();
+  PF.toast('РљР»СЋС‡ РѕС‚РѕР·РІР°РЅ'); render();
 }
 </script>
 </body>
