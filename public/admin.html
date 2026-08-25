@@ -206,8 +206,9 @@ async function viewTraders(v) {
   v.innerHTML = `<div class="card"><div class="panel-t"><h2>Трейдеры</h2>
     <div class="row"><button class="ghost" onclick="render()">⟳</button>
     <button class="green" onclick="createTrader()">Добавить трейдера</button></div></div>${
-    PF.table(['Имя','Email','Статус','Online','CARD / SBP','Fee %','Баланс ₽','Success/Fail','Действия'], list.map((t) => `
-    <tr><td>${PF.esc(t.displayName)}</td><td>${PF.esc(t.email)}</td>
+    PF.table(['Код','Имя','Email','Статус','Online','CARD / SBP','Fee %','Баланс ₽','Success/Fail','Действия'], list.map((t) => `
+    <tr><td class="mono" style="color:var(--accent);font-weight:600">${PF.esc(t.traderCode || '—')}</td>
+    <td>${PF.esc(t.displayName)}</td><td>${PF.esc(t.email)}</td>
     <td class="${t.status === 'ACTIVE' ? 'st-COMPLETED' : 'st-FAILED'}"><b>${t.status}</b></td>
     <td>${t.isOnline ? 'online' : 'offline'}</td>
     <td>${t.methodCard ? '✓' : '—'} / ${t.methodSbp ? '✓' : '—'}</td>

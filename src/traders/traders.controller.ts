@@ -92,6 +92,13 @@ export class TradersController {
     return rest;
   }
 
+  @Get('me/code')
+  @ApiOperation({ summary: 'Get trader unique code (TR-XXXXXX)' })
+  async getTraderCode(@CurrentUser() user: AuthUser) {
+    const trader = await this.requireTrader(user.id);
+    return { traderCode: trader.traderCode, accountId: trader.accountId };
+  }
+
   @Patch('me')
   @ApiOperation({ summary: 'Toggle availability / supported methods' })
   async update(

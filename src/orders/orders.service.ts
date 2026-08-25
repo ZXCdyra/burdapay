@@ -34,6 +34,7 @@ export interface SanitizedOrder {
   id: string;
   merchantId: string;
   traderId: string | null;
+  traderCode: string | null;
   type: OrderType;
   method: PaymentMethod;
   status: OrderStatus;
@@ -232,8 +233,15 @@ export class OrdersService implements OnModuleInit {
     await this.logEvent(order.id, 'ORDER_CREATED', { status: order.status, traderId: order.traderId });
     await this.queues.scheduleOrderExpiry(order.id, order.expiresAt.getTime() - Date.now());
 
-    this.events.emitToUser('MERCHANT', order.merchantId, 'order.updated', this.sanitize(order));
-    this.events.emitToAdmins('order.updated', this.sanitize(order));
+    const sanitized = this.sanitize(order);
+    // Fetch traderCode for response
+    if (order.traderId) {
+      const trader = await this.prisma.trader.findUnique({ where: { id: order.traderId }, select: { traderCode: true } });
+      sanitized.traderCode = trader?.traderCode ?? null;
+    }
+
+    this.events.emitToUser('MERCHANT', order.merchantId, 'order.updated', sanitized);
+    this.events.emitToAdmins('order.updated', sanitized);
     if (order.traderId) {
       this.events.emitToUser('TRADER', order.traderId, 'order.new', this.forTrader(order));
     }
@@ -253,10 +261,12 @@ export class OrdersService implements OnModuleInit {
   async getForMerchant(merchantId: string, orderId: string): Promise<SanitizedOrder> {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, merchantId },
-      include: { events: { orderBy: { createdAt: 'desc' }, take: 20 } },
+      include: { events: { orderBy: { createdAt: 'desc' }, take: 20 }, trader: { select: { traderCode: true, displayName: true } } },
     });
     if (!order) throw new NotFoundException('Order not found');
-    return this.sanitize(order);
+    const sanitized = this.sanitize(order);
+    sanitized.traderCode = order.trader?.traderCode ?? null;
+    return sanitized;
   }
 
   async listForTrader(traderId: string): Promise<SanitizedOrder[]> {
@@ -906,6 +916,7 @@ export class OrdersService implements OnModuleInit {
       id: order.id,
       merchantId: order.merchantId,
       traderId: order.traderId,
+      traderCode: null, // will be set after trader join
       type: order.type,
       method: order.method,
       status: order.status,

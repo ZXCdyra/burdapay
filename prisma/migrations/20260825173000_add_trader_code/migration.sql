@@ -1,0 +1,1 @@
+ALTER TABLE "Trader" ADD COLUMN "traderCode" VARCHAR(255) DEFAULT '';

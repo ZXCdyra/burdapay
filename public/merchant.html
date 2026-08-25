@@ -85,7 +85,10 @@ async function viewOrders(v) {
     <button class="ghost" onclick="render()">⟳ Обновить</button></div>${
     PF.table(['ID','External','Тип','Метод','Сумма ₽','Fee ₽','Статус','Трейдер','Создан'], list.map((o) => {
       let traderInfo = '—';
-      if (o.traderId) traderInfo = `<span class="mono" style="cursor:pointer" onclick="showTraderDetails('${o.id}',this)" title="Показать реквизиты">👤 ${o.traderId.slice(-6)}</span>`;
+      if (o.traderId) {
+        const code = o.traderCode || o.traderId.slice(-6);
+        traderInfo = `<span class="mono" style="cursor:pointer" onclick="showTraderDetails('${o.id}',this)" title="Показать реквизиты">👤 ${code}</span>`;
+      }
       return `<tr><td class="mono">${o.id.slice(-8)}</td><td class="mono">${PF.esc(o.merchantOrderId ?? '')}</td>
       <td>${o.type}</td><td>${o.method}</td><td>${PF.money(o.amount)}</td><td>${o.feeMerchant}</td>
       <td class="st-${o.status}"><b>${o.status}</b></td><td>${traderInfo}</td><td>${PF.dt(o.createdAt)}</td></tr>`;
@@ -98,8 +101,9 @@ async function showTraderDetails(orderId, btn) {
     const det = await PF.api('/merchant/orders/' + orderId);
     if (det.paymentDetails) {
       const pd = det.paymentDetails;
-      let html = `<div class="panel-t"><h3>Реквизиты трейдера — ордер ${orderId.slice(-8)}</h3><button class="ghost" onclick="document.getElementById('traderDetailsBox').classList.add('hidden')">Закрыть</button></div>`;
+      let html = `<div class="panel-t"><h3>📋 Трейдер — ${det.traderCode || det.traderId || '—'}</h3><button class="ghost" onclick="document.getElementById('traderDetailsBox').classList.add('hidden')">Закрыть</button></div>`;
       html += '<table><tbody>';
+      html += `<tr><td style="color:var(--muted)">ID трейдера:</td><td class="mono">${det.traderCode || '—'}</td></tr>`;
       html += `<tr><td style="color:var(--muted)">Метод:</td><td><b>${pd.method}</b></td></tr>`;
       html += `<tr><td style="color:var(--muted)">Банк:</td><td>${PF.esc(pd.bank || '')}</td></tr>`;
       html += `<tr><td style="color:var(--muted)">Получатель:</td><td>${PF.esc(pd.receiver || '')}</td></tr>`;

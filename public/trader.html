@@ -99,7 +99,7 @@ async function viewDashboard(v) {
   <div class="card" style="margin-bottom:20px"><div class="panel-t"><h2>Статус на линии</h2></div>
     <div class="row" style="align-items:center;font-size:14px;flex-wrap:wrap">
       <span style="color:${me.isOnline ? 'var(--green)' : 'var(--muted)'}">${me.isOnline ? 'Онлайн' : 'Офлайн'}</span>
-      <span style="margin-left:12px">аккаунт: <b class="mono">${me.accountId || me.id}</b></span>
+      <span style="margin-left:12px">ID: <b class="mono" style="color:var(--accent)">${me.traderCode || '—'} (Acc: ${me.accountId || me.id})</b></span>
       <button class="${me.isOnline ? 'red' : 'green'}" onclick="toggleOnline(${!me.isOnline})" style="margin-left:12px">
         ${me.isOnline ? 'Офлайн' : 'На линию'}</button>
     </div>

@@ -162,6 +162,7 @@ export class AdminController {
       },
       orderBy: { createdAt: 'desc' },
       take: 200,
+      include: { trader: { select: { traderCode: true, displayName: true } } },
     });
   }
 
@@ -205,7 +206,7 @@ export class AdminController {
   listTraders() {
     return this.prisma.trader.findMany({
       select: {
-        id: true, email: true, displayName: true, status: true, isOnline: true,
+        id: true, email: true, displayName: true, traderCode: true, status: true, isOnline: true,
         methodCard: true, methodSbp: true, feePercent: true, balance: true,
         lockedOrders: true, successCount: true, failCount: true, createdAt: true,
       },
@@ -219,16 +220,28 @@ export class AdminController {
     const dto = this.CreateTraderSchema.parse(body);
     const existing = await this.prisma.trader.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Trader with this email already exists');
+    
+    const traderCode = this.generateTraderCode();
     const trader = await this.prisma.trader.create({
       data: {
         email: dto.email,
         displayName: dto.displayName,
         passwordHash: await bcrypt.hash(dto.password, 10),
+        traderCode,
       },
     });
     const { passwordHash: _p, ...rest } = trader;
     this.events.emitToAdmins('user.created', { role: 'TRADER', ...rest });
     return rest;
+  }
+
+  private generateTraderCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code: string;
+    do {
+      code = 'TR-' + Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    } while (code.length < 9);
+    return code;
   }
 
   @Patch('traders/:id')

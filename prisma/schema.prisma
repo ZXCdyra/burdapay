@@ -113,6 +113,7 @@ model AdminUser {
 model Trader {
   id                  String      @id @default(cuid())
   accountId           String      @unique @default(uuid())
+  traderCode          String      @unique @default("")
   email               String      @unique
   passwordHash        String
   displayName         String
