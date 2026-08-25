@@ -15,38 +15,41 @@ export class PaymentsGateController {
   @Get('order/:orderId')
   @HttpCode(200)
   async getOrderPaymentDetails(@Param('orderId') orderId: string, @Res() res: Response) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        trader: { select: { traderCode: true, displayName: true } },
-        traderRequisite: true,
-      },
-    });
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
+    // Fetch trader for code
+    let traderCode = null;
+    if (order.traderId) {
+      const trader = await this.prisma.trader.findUnique({ where: { id: order.traderId }, select: { traderCode: true } });
+      traderCode = trader?.traderCode ?? null;
+    }
+
     // If paymentDetails is null, generate from requisite
-    let paymentDetails = order.paymentDetails;
-    if (!paymentDetails && order.traderRequisite) {
-      const refCode = `PF-${order.id.slice(-8).toUpperCase()}`;
-      const req = order.traderRequisite;
-      if (req.method === 'CARD') {
-        paymentDetails = {
-          method: 'CARD',
-          bank: req.bankName,
-          receiver: req.receiverName,
-          cardLast4: req.cardLast4,
-          amount: order.amount.toFixed(2),
-          comment: refCode,
-        };
-      } else {
-        paymentDetails = {
-          method: 'SBP',
-          bank: req.bankName,
-          receiver: req.receiverName,
-          phone: req.sbpPhone,
-          amount: order.amount.toFixed(2),
-          comment: refCode,
-        };
+    let paymentDetails: any = order.paymentDetails;
+    if (!paymentDetails && order.requisiteId) {
+      const requisite = await this.prisma.traderRequisite.findUnique({ where: { id: order.requisiteId } });
+      if (requisite) {
+        const refCode = `PF-${order.id.slice(-8).toUpperCase()}`;
+        if (requisite.method === 'CARD') {
+          paymentDetails = {
+            method: 'CARD',
+            bank: requisite.bankName,
+            receiver: requisite.receiverName,
+            cardLast4: requisite.cardLast4,
+            amount: order.amount.toFixed(2),
+            comment: refCode,
+          };
+        } else {
+          paymentDetails = {
+            method: 'SBP',
+            bank: requisite.bankName,
+            receiver: requisite.receiverName,
+            phone: requisite.sbpPhone,
+            amount: order.amount.toFixed(2),
+            comment: refCode,
+          };
+        }
       }
     }
 
@@ -59,7 +62,7 @@ export class PaymentsGateController {
       status: order.status,
       merchantOrderId: order.merchantOrderId,
       paymentDetails,
-      traderCode: order.trader?.traderCode ?? null,
+      traderCode,
     });
   }
 
