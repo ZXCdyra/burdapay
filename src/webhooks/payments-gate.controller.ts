@@ -2,7 +2,7 @@ import { Controller, Post, Req, Res, HttpCode, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
-import { getWebhookOrderCandidates } from './payments-gate.utils';
+import { getWebhookAmount, getWebhookCurrency, getWebhookOrderCandidates } from './payments-gate.utils';
 
 @Controller(['payments-gate', 'api/webhooks'])
 export class PaymentsGateController {
@@ -48,8 +48,31 @@ export class PaymentsGateController {
 
     const eventType = payload?.type || '';
     const status = (payload?.object?.status || '').toUpperCase();
+    const isSuccess = eventType === 'payment.success' ||
+      status === 'PAID' || status === 'SETTLED' || status === 'SUCCESS';
+
+    if (isSuccess) {
+      // Amount verification: the callback must match the order, otherwise we do not credit
+      const webhookAmount = getWebhookAmount(payload);
+      if (!webhookAmount || !webhookAmount.eq(order.amount)) {
+        this.logger.warn(
+          `Amount mismatch for order ${order.id}: webhook=${webhookAmount ? webhookAmount.toFixed(2) : 'n/a'}, ` +
+          `order=${order.amount.toFixed(2)} — rejecting`,
+        );
+        return res.status(200).json({ ok: false, matched: true, reason: 'AMOUNT_MISMATCH' });
+      }
+
+      const webhookCurrency = getWebhookCurrency(payload);
+      if (webhookCurrency && webhookCurrency !== order.currency.toUpperCase()) {
+        this.logger.warn(
+          `Currency mismatch for order ${order.id}: webhook=${webhookCurrency}, order=${order.currency} — rejecting`,
+        );
+        return res.status(200).json({ ok: false, matched: true, reason: 'CURRENCY_MISMATCH' });
+      }
+    }
+
     try {
-      if (eventType === 'payment.success' || status === 'PAID' || status === 'SETTLED' || status === 'SUCCESS') {
+      if (isSuccess) {
         await this.orders.adminResolve(order.id, 'complete', 'payments-gate');
       } else if (eventType === 'payment.failed' || eventType === 'payment.cancelled' ||
                  status === 'FAILED' || status === 'CANCELLED' || status === 'REVOKED') {
