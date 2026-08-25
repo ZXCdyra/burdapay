@@ -38,7 +38,6 @@ const PF = {
   logout() {
     localStorage.removeItem('pf_token');
     sessionStorage.removeItem('pf_pk');
-    sessionStorage.removeItem('pf_sk');
     if (PF.socket) PF.socket.disconnect();
     location.href = '/';
   },

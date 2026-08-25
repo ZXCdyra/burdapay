@@ -5,10 +5,6 @@ export class CryptoUtil {
     return crypto.createHash('sha256').update(value).digest('hex');
   }
 
-  static hmacSha256Hex(secret: string, payload: string): string {
-    return crypto.createHmac('sha256', secret).update(payload).digest('hex');
-  }
-
   static timingSafeEqual(a: string, b: string): boolean {
     const bufA = Buffer.from(a, 'utf8');
     const bufB = Buffer.from(b, 'utf8');

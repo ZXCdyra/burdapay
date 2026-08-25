@@ -34,13 +34,12 @@ async function bootstrap(): Promise<void> {
     .setTitle('PayFlow Processing API')
     .setDescription(
       'High-risk payment processing platform. Methods: CARD (Visa/Mastercard/MIR) and SBP only. ' +
-        'Merchant machine endpoints use X-Api-Key + X-Signature HMAC headers. ' +
+        'Merchant machine endpoints use the X-Api-Key header. ' +
         'Dashboard endpoints use JWT bearer tokens.',
     )
     .setVersion('1.0.0')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'jwt')
     .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header', description: 'Merchant public key pk_...' }, 'api-key')
-    .addApiKey({ type: 'apiKey', name: 'x-signature', in: 'header', description: 't=<unix>,v1=HMAC_SHA256(secret, t.rawBody)' }, 'api-signature')
     .addTag('auth')
     .addTag('payment-methods')
     .addTag('orders')

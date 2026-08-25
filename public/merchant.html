@@ -91,38 +91,30 @@ async function viewOrders(v) {
 
 function viewNewOrder(v) {
   const idem = 'ui-' + Date.now();
-  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Ордер через API (HMAC-подпись)</h2></div>
+  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Ордер через API</h2></div>
   <label>Public key (pk_…)<input id="pkKey" value="${sessionStorage.getItem('pf_pk') || ''}" placeholder="pk_..."></label>
-  <label>Secret (sk_…) — не сохраняется на сервере<input id="skSecret" type="password" value="${sessionStorage.getItem('pf_sk') || ''}" placeholder="sk_..."></label>
   <label>Тип<select id="ordType"><option value="DEPOSIT">DEPOSIT — приём платежа</option><option value="WITHDRAWAL">WITHDRAWAL — выплата</option></select></label>
   <label>Метод<select id="ordMethod"><option value="CARD">CARD (Visa / Mastercard / МИР)</option><option value="SBP">SBP</option></select></label>
   <label>Сумма ₽<input id="ordAmount" type="number" min="100" value="5000"></label>
   <label>Idempotency key<input id="ordIdem" value="${idem}"></label>
-  <button onclick="createOrder()">Подписать и отправить</button>
+  <button onclick="createOrder()">Отправить</button>
   <pre id="ordOut" class="mono payout" style="margin-top:14px;color:var(--muted)">Ответ появится здесь…</pre>
-  <p class="sub" style="margin-top:14px;margin-bottom:0">Подпись: <span class="mono">HMAC_SHA256(sk, "t.rawBody")</span> в заголовке <span class="mono">x-signature: t=…,v1=…</span></p></div>`;
+  <p class="sub" style="margin-top:14px;margin-bottom:0">Авторизация: заголовок <span class="mono">x-api-key: pk_…</span></p></div>`;
 }
 
 async function createOrder() {
   const pk = document.getElementById('pkKey').value.trim();
-  const sk = document.getElementById('skSecret').value.trim();
   sessionStorage.setItem('pf_pk', pk);
-  sessionStorage.setItem('pf_sk', sk);
   const body = {
     type: document.getElementById('ordType').value,
     method: document.getElementById('ordMethod').value,
     amount: parseFloat(document.getElementById('ordAmount').value),
     idempotencyKey: document.getElementById('ordIdem').value.trim() || ('ui-' + Date.now()),
   };
-  const raw = JSON.stringify(body);
-  const t = Math.floor(Date.now() / 1000);
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(sk), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${t}.${raw}`));
-  const hex = [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
   try {
     const res = await fetch('/orders', { method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': pk, 'x-signature': `t=${t},v1=${hex}` },
-      body: raw });
+      headers: { 'Content-Type': 'application/json', 'x-api-key': pk },
+      body: JSON.stringify(body) });
     const data = await res.json();
     document.getElementById('ordOut').textContent = JSON.stringify(data, null, 2);
     if (res.ok && !data.replayed) PF.toast('Ордер создан, трейдер назначен');

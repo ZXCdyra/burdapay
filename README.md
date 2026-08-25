@@ -11,7 +11,7 @@ Production-ready платёжная платформа: приём депози�
 | БД | PostgreSQL 16 + Prisma ORM 5 |
 | Очереди | Redis 7 + BullMQ (истечение ордеров, ретраи вебхуков) |
 | Realtime | Socket.IO (push-события ордеров) |
-| Auth | JWT (кабинеты) + API Key pk_/sk_ + HMAC-SHA256 (машины) |
+| Auth | JWT (кабинеты) + API Key pk_ (машины) |
 | Валидация | Zod (env + DTO), глобальный ExceptionFilter |
 | Документация | Swagger UI на `/docs` |
 | Деплой | Docker multi-stage, docker-compose, Render Blueprint |
@@ -19,14 +19,14 @@ Production-ready платёжная платформа: приём депози�
 ## Архитектура
 
 ```
-Мерчант ──HMAC──▶ POST /orders ──▶ OrdersService (state machine)
+Мерчант ──API Key──▶ POST /orders ──▶ OrdersService (state machine)
                                       │  antifraud (velocity, blacklist)
                                       │  smart routing (score = 0.6*successRate + 0.25*(1-load) + 0.15*random)
                                       ▼
                               Trader (WS push) ──accept/confirm/mark-paid──▶ LedgerEntry (двойная запись)
                                       │                                        │
                                       ▼                                        ▼
-                          order-expiry queue (TTL 15м)              Merchant balance / webhook HMAC → retry x5 backoff
+                          order-expiry queue (TTL 15м)              Merchant balance / webhook delivery → retry x5 backoff
 ```
 
 ### ER-диаграмма
@@ -57,13 +57,13 @@ payflow/
 │                      admin.html, merchant.html, trader.html, style.css, app.js
 ├── src/
 │   ├── common/        config (zod env, AppConfig), guards (Jwt/Roles/ApiKey),
-│   │                  utils (AES-256-GCM, HMAC), filters, interceptors, decorators
+│   │                  utils (AES-256-GCM), filters, interceptors, decorators
 │   ├── prisma/ redis/ queues/ websocket/
 │   ├── auth/          login, register merchant/trader, /auth/me
 │   ├── orders/        сервис state machine (~800 строк), merchant API (x-api-key),
 │   │                  trader actions, zod DTO
 │   ├── routing/       смарт-роутинг с атомарным lock/unlock
-│   ├── webhooks/      подписанные HMAC delivery с BullMQ-ретраями
+│   ├── webhooks/      webhook delivery с BullMQ-ретраями
 │   ├── antifraud/     blacklist + velocity checks
 │   ├── merchants/ traders/ admin/ payment-methods/ health/
 │   └── main.ts        helmet, CORS, Swagger /docs, static public/
@@ -99,15 +99,11 @@ curl -s -X POST localhost:3000/auth/login -H 'Content-Type: application/json' \
   -d '{"email":"merchant@demo-casino.io","password":"ChangeMe_Merchant123"}'
 ```
 
-Создание ордера машиной (подпись `t=<unix>,v1=hmac_sha256(sk, "<t>.<rawBody>")`):
+Создание ордера машиной:
 ```bash
-BODY='{"type":"DEPOSIT","method":"CARD","amount":5000,"idempotencyKey":"ord-001"}'
-T=$(date +%s)
-SIG=$(printf '%s.%s' "$T" "$BODY" | openssl dgst -sha256 -hmac "$SK" -hex | cut -d' ' -f2)
-
 curl -s -X POST localhost:3000/orders \
   -H 'Content-Type: application/json' -H "x-api-key: $PK" \
-  -H "x-signature: t=$T,v1=$SIG" -d "$BODY"
+  -d '{"type":"DEPOSIT","method":"CARD","amount":5000,"idempotencyKey":"ord-001"}'
 ```
 
 Трейдер принимает ордер (JWT из логина):
@@ -156,5 +152,4 @@ curl -X POST localhost:3000/trader/orders/<id>/accept -H "Authorization: Bearer 
 - Пароли bcrypt(12); JWT HS256 TTL 12h; RBAC guard на кабинетах.
 - API-секреты только AES-256-GCM; номер карты хешируется sha256(pepper) для антифрода,
   полный номер не возвращается никому (только last4).
-- HMAC-подпись машинных запросов с окном ±300с против replay.
 - Helmet, CORS whitelist, rate-limit (Throttler), глобальный Zod-парсинг env.

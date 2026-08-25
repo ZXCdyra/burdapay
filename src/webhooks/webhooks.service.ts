@@ -2,9 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnModuleInit } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { Prisma, WebhookStatus } from '@prisma/client';
-import { AppConfig } from '../common/config/app-config.service';
-import { CryptoUtil } from '../common/utils/crypto.util';
-import { HmacUtil } from '../common/utils/hmac.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { QueueService } from '../queues/queue.service';
 import { QUEUES, WebhookDeliveryJobData } from '../queues/queues.constants';
@@ -27,7 +24,6 @@ export class WebhooksService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly queues: QueueService,
-    private readonly cfg: AppConfig,
   ) {}
 
   onModuleInit(): void {
@@ -75,15 +71,6 @@ export class WebhooksService implements OnModuleInit {
 
     const url = merchant.webhookUrl;
     const body = JSON.stringify(payload);
-    let secret: string;
-    try {
-      secret = CryptoUtil.decrypt(merchant.callbackSecretEncrypted, this.cfg.encryptionKey);
-    } catch {
-      this.logger.error(`Cannot decrypt callback secret for merchant ${merchantId}`);
-      return;
-    }
-
-    const signature = HmacUtil.buildSignatureHeader(secret, body);
     const attempt = (job.attemptsMade ?? 0) + 1;
 
     try {
@@ -91,7 +78,6 @@ export class WebhooksService implements OnModuleInit {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Payflow-Signature': signature,
           'X-Payflow-Event': event,
         },
         body,
