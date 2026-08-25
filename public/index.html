@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PayFlow вЂ” РІС…РѕРґ</title>
+<title>PayFlow — вход</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/style.css?v=6">
 </head>
@@ -11,11 +11,11 @@
 <div class="login-wrap">
   <div class="card login-card">
     <div class="logo">Pay<span>Flow</span></div>
-    <div class="sub">РџР»Р°С‚С‘Р¶РЅС‹Р№ РїСЂРѕС†РµСЃСЃРёРЅРі В· CARD / SBP</div>
+    <div class="sub">Платёжный процессинг · CARD / SBP</div>
     <form id="loginForm">
       <label>Email<input type="email" id="email" required placeholder="you@corp.io" autocomplete="username"></label>
-      <label>РџР°СЂРѕР»СЊ<input type="password" id="password" required placeholder="вЂўвЂўвЂўвЂўвЂўвЂўвЂўвЂў" autocomplete="current-password"></label>
-      <button style="width:100%" type="submit">Р’РѕР№С‚Рё</button>
+      <label>Пароль<input type="password" id="password" required placeholder="••••••••" autocomplete="current-password"></label>
+      <button style="width:100%" type="submit">Войти</button>
     </form>
     <div class="chips">
       <span class="chip">CARD</span><span class="chip">SBP</span>
@@ -38,7 +38,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'РћС€РёР±РєР° РІС…РѕРґР°');
+    if (!res.ok) throw new Error(data.message || 'Ошибка входа');
     localStorage.setItem('pf_token', data.accessToken);
     location.href = '/' + data.role.toLowerCase() + '.html';
   } catch (err) { alert(err.message); }

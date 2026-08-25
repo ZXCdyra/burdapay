@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PayFlow вЂ” РљР°Р±РёРЅРµС‚ С‚СЂРµР№РґРµСЂР°</title>
+<title>PayFlow — Кабинет трейдера</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/style.css?v=6">
 <script src="/vendor/socket.io.min.js"></script>
@@ -15,8 +15,8 @@
     <div class="hdr-right">
       <span class="badge TRADER" id="roleBadge">TRADER</span>
       <span style="color:var(--muted);font-size:13px" id="whoami"></span>
-      <button class="ghost" onclick="PF.openDeposit()">РџРѕРїРѕР»РЅРµРЅРёРµ</button>
-      <button class="ghost" onclick="PF.logout()">Р’С‹Р№С‚Рё</button>
+      <button class="ghost" onclick="PF.openDeposit()">Пополнение</button>
+      <button class="ghost" onclick="PF.logout()">Выйти</button>
     </div>
   </header>
   <div class="content">
@@ -30,9 +30,9 @@
 
 <script src="/app.js?v=6"></script>
 <script>
-// Reordered: Р“Р»Р°РІРЅР°СЏ -> Р РµРєРІРёР·РёС‚С‹ -> РћСЂРґРµСЂР° -> РџРѕРїРѕР»РЅРµРЅРёРµ
+// Reordered: Главная -> Реквизиты -> Ордера -> Пополнение
 const TABS = ['dashboard','requisites','orders','deposits'];
-const LABELS = { dashboard:'Р“Р»Р°РІРЅР°СЏ', requisites:'Р РµРєРІРёР·РёС‚С‹', orders:'РћСЂРґРµСЂР°', deposits:'РџРѕРїРѕР»РЅРµРЅРёРµ' };
+const LABELS = { dashboard:'Главная', requisites:'Реквизиты', orders:'Ордера', deposits:'Пополнение' };
 let tab = 'dashboard';
 
 (async () => {
@@ -52,22 +52,22 @@ let tab = 'dashboard';
   // separator + logout at the bottom
   nav.insertAdjacentHTML('beforeend','<div class="sep"></div>');
   const outBtn = document.createElement('button');
-  outBtn.textContent = 'Р’С‹Р№С‚Рё';
+  outBtn.textContent = 'Выйти';
   outBtn.onclick = () => PF.logout();
   outBtn.style.marginTop = '8px';
   nav.appendChild(outBtn);
   
   render();
   PF.connectWS({
-    onNewOrder: (o) => { PF.toast('РќРѕРІС‹Р№ РѕСЂРґРµСЂ ' + o.amount + ' ' + o.currency); if (tab === 'orders') render(); },
-    onExpired: () => { PF.toast('РћСЂРґРµСЂ РёСЃС‚С‘Рє'); render(); },
+    onNewOrder: (o) => { PF.toast('Новый ордер ' + o.amount + ' ' + o.currency); if (tab === 'orders') render(); },
+    onExpired: () => { PF.toast('Ордер истёк'); render(); },
   });
 })();
 
 async function render() {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   const v = document.getElementById('view');
-  v.innerHTML = '<div class="empty">Р—Р°РіСЂСѓР·РєР°...</div>';
+  v.innerHTML = '<div class="empty">Загрузка...</div>';
   try {
     if (tab === 'dashboard') await viewDashboard(v);
     else if (tab === 'orders') await viewOrders(v);
@@ -79,55 +79,55 @@ async function render() {
 async function viewDashboard(v) {
   const [me, bal] = await Promise.all([PF.api('/trader/me'), PF.api('/trader/me/balance')]);
   v.innerHTML = `<div class="grid">
-    ${PF.statCard('Р‘Р°Р»Р°РЅСЃ', PF.money(me.balance) + ' СЂСѓР±', Number(me.balance) < 0 ? 'var(--red)' : 'var(--green)')}
-    ${PF.statCard('РђРєС‚РёРІРЅС‹С… РѕСЂРґРµСЂРѕРІ', bal.lockedOrders, 'var(--yellow)')}
-    ${PF.statCard('РЈСЃРїРµС€РЅС‹С… РѕСЂРґРµСЂРѕРІ', me.successCount, 'var(--green)')}
-    ${PF.statCard('РџСЂРѕРІР°Р»РѕРІ', me.failCount, 'var(--red)')}
+    ${PF.statCard('Баланс', PF.money(me.balance) + ' руб', Number(me.balance) < 0 ? 'var(--red)' : 'var(--green)')}
+    ${PF.statCard('Активных ордеров', bal.lockedOrders, 'var(--yellow)')}
+    ${PF.statCard('Успешных ордеров', me.successCount, 'var(--green)')}
+    ${PF.statCard('Провалов', me.failCount, 'var(--red)')}
   </div>
-  <div class="card" style="margin-bottom:20px"><div class="panel-t"><h2>РЎС‚Р°С‚СѓСЃ РЅР° Р»РёРЅРёРё</h2></div>
+  <div class="card" style="margin-bottom:20px"><div class="panel-t"><h2>Статус на линии</h2></div>
     <div class="row" style="align-items:center;font-size:14px;flex-wrap:wrap">
-      <span style="color:${me.isOnline ? 'var(--green)' : 'var(--muted)'}">${me.isOnline ? 'РћРЅР»Р°Р№РЅ' : 'РћС„Р»Р°Р№РЅ'}</span>
-      <span style="margin-left:12px">Р°РєРєР°СѓРЅС‚: <b class="mono">${me.accountId || me.id}</b></span>
+      <span style="color:${me.isOnline ? 'var(--green)' : 'var(--muted)'}">${me.isOnline ? 'Онлайн' : 'Офлайн'}</span>
+      <span style="margin-left:12px">аккаунт: <b class="mono">${me.accountId || me.id}</b></span>
       <button class="${me.isOnline ? 'red' : 'green'}" onclick="toggleOnline(${!me.isOnline})" style="margin-left:12px">
-        ${me.isOnline ? 'РћС„Р»Р°Р№РЅ' : 'РќР° Р»РёРЅРёСЋ'}</button>
+        ${me.isOnline ? 'Офлайн' : 'На линию'}</button>
     </div>
       <p class="sub" style="margin-top:14px;margin-bottom:0">
-        РњРµС‚РѕРґС‹: CARD ${me.methodCard ? 'РђРєС‚РёРІРµРЅ' : 'РќРµР°РєС‚РёРІРµРЅ'} | SBP ${me.methodSbp ? 'РђРєС‚РёРІРµРЅ' : 'РќРµР°РєС‚РёРІРµРЅ'}
-        &nbsp;|&nbsp; Р›РёРјРёС‚С‹: ${PF.money(me.minOrderAmount)}-${PF.money(me.maxOrderAmount)} СЂСѓР± | РґРѕ ${me.maxConcurrentOrders} РѕСЂРґРµСЂРѕРІ
+        Методы: CARD ${me.methodCard ? 'Активен' : 'Неактивен'} | SBP ${me.methodSbp ? 'Активен' : 'Неактивен'}
+        &nbsp;|&nbsp; Лимиты: ${PF.money(me.minOrderAmount)}-${PF.money(me.maxOrderAmount)} руб | до ${me.maxConcurrentOrders} ордеров
       </p></div>
     <!-- Limits editing moved to Requisites tab per UX request -->
-  <div class="card"><div class="panel-t"><h2>РџРѕСЃР»РµРґРЅРёРµ РѕРїРµСЂР°С†РёРё</h2></div>${
-    PF.table(['Р’СЂРµРјСЏ','РўРёРї','РЎСѓРјРјР°','Р‘Р°Р»Р°РЅСЃ РїРѕСЃР»Рµ'], bal.entries.slice(0, 15).map((l) => `
+  <div class="card"><div class="panel-t"><h2>Последние операции</h2></div>${
+    PF.table(['Время','Тип','Сумма','Баланс после'], bal.entries.slice(0, 15).map((l) => `
     <tr><td>${PF.dt(l.createdAt)}</td><td class="mono">${l.kind}</td>
     <td style="color:${Number(l.amount) >= 0 ? 'var(--green)' : 'var(--red)'}">${Number(l.amount).toLocaleString('ru')}</td>
     <td>${Number(l.balanceAfter).toLocaleString('ru')}</td></tr>`))}</div>`;
 }
 async function toggleOnline(on) {
   await PF.api('/trader/me', { method: 'PATCH', body: JSON.stringify({ isOnline: on }) });
-  PF.toast(on ? 'Р’С‹ РЅР° Р»РёРЅРёРё' : 'Р’С‹ РѕС„Р»Р°Р№РЅ'); render();
+  PF.toast(on ? 'Вы на линии' : 'Вы офлайн'); render();
 }
 
 async function viewOrders(v) {
   const list = await PF.api('/trader/orders');
-  v.innerHTML = `<div class="card"><div class="panel-t"><h2>РњРѕРё РѕСЂРґРµСЂР° (${list.length})</h2>
-    <button class="ghost" onclick="render()">РћР±РЅРѕРІРёС‚СЊ</button></div>${
-    PF.table(['ID','РўРёРї','РњРµС‚РѕРґ','РЎСѓРјРјР°','Fee','РЎС‚Р°С‚СѓСЃ','РСЃС‚РµРєР°РµС‚','Р”РµР№СЃС‚РІРёСЏ'], list.map((o) => {
-      let actions = 'вЂ”';
+  v.innerHTML = `<div class="card"><div class="panel-t"><h2>Мои ордера (${list.length})</h2>
+    <button class="ghost" onclick="render()">Обновить</button></div>${
+    PF.table(['ID','Тип','Метод','Сумма','Fee','Статус','Истекает','Действия'], list.map((o) => {
+      let actions = '—';
       if (o.status === 'PENDING') {
         const acceptWindow = (new Date(o.createdAt)).getTime() + 10*60*1000;
         if (Date.now() <= acceptWindow) {
-          actions = `<button onclick="tAction('${o.id}','accept')">РџСЂРёРЅСЏС‚СЊ</button>
-                     <button class="red" onclick="tDecline('${o.id}')">РћС‚РєР°Р·Р°С‚СЊСЃСЏ</button>`;
+          actions = `<button onclick="tAction('${o.id}','accept')">Принять</button>
+                     <button class="red" onclick="tDecline('${o.id}')">Отказаться</button>`;
         } else {
-          actions = 'Р°СЂС…РёРІ';
+          actions = 'архив';
         }
       }
       else if (o.status === 'ASSIGNED' && o.type === 'DEPOSIT')
-        actions = `<button class="green" onclick="tConfirm('${o.id}')">РџР»Р°С‚С‘Р¶ РїРѕР»СѓС‡РµРЅ</button>
-                   <button class="red" onclick="tDecline('${o.id}')">РћС‚РєР°Р·Р°С‚СЊСЃСЏ</button>`;
+        actions = `<button class="green" onclick="tConfirm('${o.id}')">Платёж получен</button>
+                   <button class="red" onclick="tDecline('${o.id}')">Отказаться</button>`;
       else if (o.status === 'ASSIGNED' && o.type === 'WITHDRAWAL')
-        actions = `<button class="green" onclick="tAction('${o.id}','mark-paid')">Р’С‹РїР»Р°С‡РµРЅРѕ</button>
-                   <button class="ghost" onclick="showPayout('${o.id}', this)">Р РµРєРІРёР·РёС‚С‹</button>`;
+        actions = `<button class="green" onclick="tAction('${o.id}','mark-paid')">Выплачено</button>
+                   <button class="ghost" onclick="showPayout('${o.id}', this)">Реквизиты</button>`;
       return `<tr><td class="mono">${o.id.slice(-8)}</td><td>${o.type}</td><td>${o.method}</td>
       <td>${PF.money(o.amount)}</td><td>${o.feeTrader ?? o.fee}</td>
       <td class="st-${o.status}"><b>${o.status}</b></td><td>${PF.dt(o.expiresAt)}</td>
@@ -137,16 +137,16 @@ async function viewOrders(v) {
 }
 async function tAction(id, act, body = {}) {
   await PF.api(`/trader/orders/${id}/${act}`, { method: 'POST', body: JSON.stringify(body) });
-  PF.toast(act === 'accept' ? 'РћСЂРґРµСЂ РїСЂРёРЅСЏС‚' : 'Р“РѕС‚РѕРІРѕ'); render();
+  PF.toast(act === 'accept' ? 'Ордер принят' : 'Готово'); render();
 }
 async function tDecline(id) {
-  if (!confirm('РћС‚РєР°Р·Р°С‚СЊСЃСЏ? РћСЂРґРµСЂ СѓР№РґС‘С‚ РґСЂСѓРіРѕРјСѓ С‚СЂРµР№РґРµСЂСѓ, СЃС‚Р°С‚РёСЃС‚РёРєР° СѓС…СѓРґС€РёС‚СЃСЏ.')) return;
+  if (!confirm('Отказаться? Ордер уйдёт другому трейдеру, статистика ухудшится.')) return;
   await PF.api(`/trader/orders/${id}/decline`, { method: 'POST',
     body: JSON.stringify({ reason: 'declined via cabinet' }) });
-  PF.toast('Р—Р°РєР°Р· РїРµСЂРµРґР°РЅ РґСЂСѓРіРѕРјСѓ С‚СЂРµР№РґРµСЂСѓ'); render();
+  PF.toast('Заказ передан другому трейдеру'); render();
 }
 async function tConfirm(id) {
-  const payerName = prompt('РРјСЏ РїР»Р°С‚РµР»СЊС‰РёРєР° (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ):') || undefined;
+  const payerName = prompt('Имя плательщика (опционально):') || undefined;
   await tAction(id, 'confirm', { payerName });
 }
 async function showPayout(id, btn) {
@@ -158,30 +158,30 @@ async function showPayout(id, btn) {
 
 async function viewRequisites(v) {
   const [list, me] = await Promise.all([PF.api('/trader/me/requisites'), PF.api('/trader/me')]);
-  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Р”РѕР±Р°РІРёС‚СЊ СЂРµРєРІРёР·РёС‚С‹</h2></div>
-  <label>РњРµС‚РѕРґ<select id="rqMethod" onchange="
+  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Добавить реквизиты</h2></div>
+  <label>Метод<select id="rqMethod" onchange="
     document.getElementById('cardFields').classList.toggle('hidden', this.value !== 'CARD');
     document.getElementById('sbpFields').classList.toggle('hidden', this.value !== 'SBP')">
     <option value="CARD">CARD</option><option value="SBP">SBP</option></select></label>
-  <label>Р‘Р°РЅРє<input id="rqBank" placeholder="Sberbank / T-Bank / Alpha-Bank"></label>
-  <label>РџРѕР»СѓС‡Р°С‚РµР»СЊ<input id="rqReceiver" placeholder="IVAN IVANOV"></label>
-  <div id="cardFields"><label>РќРѕРјРµСЂ РєР°СЂС‚С‹<input id="rqCard" placeholder="4276XXXXXXXXXXXX"></label></div>
-  <div id="sbpFields" class="hidden"><label>РўРµР»РµС„РѕРЅ РЎР‘Рџ<input id="rqPhone" placeholder="+79001234567"></label></div>
-  <button onclick="addReq()">Р”РѕР±Р°РІРёС‚СЊ</button>
-  <p class="sub" style="margin-top:12px;margin-bottom:0">РќРѕРјРµСЂ РєР°СЂС‚С‹ С€РёС„СЂСѓРµС‚СЃСЏ AES-256-GCM Рё РЅРёРєРѕРіРґР° РЅРµ РїРѕРєР°Р·С‹РІР°РµС‚СЃСЏ РїРѕР»РЅРѕСЃС‚СЊСЋ.</p></div>
-  <div class="card form-card"><div class="panel-t"><h2>Р›РёРјРёС‚С‹ Рё С‚Р°Р№РјРµСЂ</h2><button class="ghost" onclick="render()">РћС‚РјРµРЅР°</button></div>
-    <label>РњРёРЅ. СЃСѓРјРјР°<input id="limitMin" value="${Number(me.minOrderAmount || 0)}"></label>
-    <label>РњР°РєСЃ. СЃСѓРјРјР°<input id="limitMax" value="${Number(me.maxOrderAmount || 0)}"></label>
-    <label>РњР°РєСЃ. РїР°СЂР°Р»Р»РµР»СЊРЅС‹С…<input id="limitMaxConc" value="${me.maxConcurrentOrders || 1}"></label>
-    <label>РЎРґРµР»РѕРє РІ РґРµРЅСЊ<input id="limitPerDay" value="${me.dealsPerDay ?? 100}"></label>
-    <label>РўР°Р№РјРµСЂ РјРµР¶РґСѓ СЃРґРµР»РєР°РјРё (СЃРµРє)<input id="limitCooldown" value="${me.dealCooldownSeconds ?? 30}"></label>
-    <div class="row"><button onclick="saveLimits()">РЎРѕС…СЂР°РЅРёС‚СЊ</button></div>
+  <label>Банк<input id="rqBank" placeholder="Sberbank / T-Bank / Alpha-Bank"></label>
+  <label>Получатель<input id="rqReceiver" placeholder="IVAN IVANOV"></label>
+  <div id="cardFields"><label>Номер карты<input id="rqCard" placeholder="4276XXXXXXXXXXXX"></label></div>
+  <div id="sbpFields" class="hidden"><label>Телефон СБП<input id="rqPhone" placeholder="+79001234567"></label></div>
+  <button onclick="addReq()">Добавить</button>
+  <p class="sub" style="margin-top:12px;margin-bottom:0">Номер карты шифруется AES-256-GCM и никогда не показывается полностью.</p></div>
+  <div class="card form-card"><div class="panel-t"><h2>Лимиты и таймер</h2><button class="ghost" onclick="render()">Отмена</button></div>
+    <label>Мин. сумма<input id="limitMin" value="${Number(me.minOrderAmount || 0)}"></label>
+    <label>Макс. сумма<input id="limitMax" value="${Number(me.maxOrderAmount || 0)}"></label>
+    <label>Макс. параллельных<input id="limitMaxConc" value="${me.maxConcurrentOrders || 1}"></label>
+    <label>Сделок в день<input id="limitPerDay" value="${me.dealsPerDay ?? 100}"></label>
+    <label>Таймер между сделками (сек)<input id="limitCooldown" value="${me.dealCooldownSeconds ?? 30}"></label>
+    <div class="row"><button onclick="saveLimits()">Сохранить</button></div>
   </div>
-  <div class="card">${PF.table(['РњРµС‚РѕРґ','Р‘Р°РЅРє','РџРѕР»СѓС‡Р°С‚РµР»СЊ','Р”Р°РЅРЅС‹Рµ','РђРєС‚РёРІРµРЅ',''], list.map((r) => `
+  <div class="card">${PF.table(['Метод','Банк','Получатель','Данные','Активен',''], list.map((r) => `
   <tr><td>${r.method}</td><td>${PF.esc(r.bankName)}</td><td>${PF.esc(r.receiverName)}</td>
   <td class="mono">${r.cardLast4 ? '**** **** **** ' + r.cardLast4 : PF.esc(r.sbpPhone || '')}</td>
-  <td class="${r.isActive ? 'st-COMPLETED' : 'st-FAILED'}">${r.isActive ? 'РґР°' : 'РЅРµС‚'}</td>
-  <td><button class="red" onclick="removeReq('${r.id}')">РЈРґР°Р»РёС‚СЊ</button></td></tr>`))}</div>`;
+  <td class="${r.isActive ? 'st-COMPLETED' : 'st-FAILED'}">${r.isActive ? 'да' : 'нет'}</td>
+  <td><button class="red" onclick="removeReq('${r.id}')">Удалить</button></td></tr>`))}</div>`;
 }
 async function addReq() {
   const m = document.getElementById('rqMethod').value;
@@ -192,28 +192,28 @@ async function addReq() {
   };
   if (m === 'CARD') body.cardNumber = document.getElementById('rqCard').value.replace(/\D/g, '');
   else body.phone = document.getElementById('rqPhone').value.trim();
-  try { await PF.api('/trader/me/requisites', { method: 'POST', body: JSON.stringify(body) }); PF.toast('Р РµРєРІРёР·РёС‚ РґРѕР±Р°РІР»РµРЅ'); render(); }
+  try { await PF.api('/trader/me/requisites', { method: 'POST', body: JSON.stringify(body) }); PF.toast('Реквизит добавлен'); render(); }
   catch (e) { alert(e.message); }
 }
 async function removeReq(id) {
-  if (!confirm('РЈРґР°Р»РёС‚СЊ СЂРµРєРІРёР·РёС‚?')) return;
+  if (!confirm('Удалить реквизит?')) return;
   await PF.api('/trader/me/requisites/' + id, { method: 'DELETE' });
-  PF.toast('Р РµРєРІРёР·РёС‚ СѓРґР°Р»С‘РЅ'); render();
+  PF.toast('Реквизит удалён'); render();
 }
 
 async function viewDeposits(v) {
   const addr = 'TRC-20 TGC6SGLQoW5szUhJhBBAfMmp7QYLnc4Lix';
   const list = await PF.api('/trader/me/deposits');
-  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>РџРѕРїРѕР»РЅРµРЅРёРµ Р±Р°Р»Р°РЅСЃР°</h2>
-    <div class="row"><button class="ghost" onclick="render()">РћС‚РјРµРЅР°</button><button class="ghost" onclick="renderDeposits()">РћР±РЅРѕРІРёС‚СЊ</button></div></div>
-    <p style="margin-bottom:12px;color:var(--muted);font-size:13px">РђРґСЂРµСЃ TRC-20: <b class="mono" style="color:var(--accent)">${addr}</b></p>
-    <label>РЎСѓРјРјР° (USD)<input id="depAmount" placeholder="50"></label>
-    <label>Tx hash (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ)<input id="depTx" placeholder="0x..."></label>
-    <div class="row"><button onclick="submitDeposit()">РЎРѕР·РґР°С‚СЊ Р·Р°СЏРІРєСѓ</button>
-    <button class="ghost" onclick="render()">РћС‚РјРµРЅР°</button></div>
-    <p class="sub" style="margin-top:14px;margin-bottom:0">РњРёРЅРёРјР°Р»СЊРЅР°СЏ СЃСѓРјРјР° РїРѕРїРѕР»РЅРµРЅРёСЏ $50.</p></div>
-  <div class="card"><div class="panel-t"><h2>РђСЂС…РёРІ РїРѕРїРѕР»РЅРµРЅРёР№ (${list.length})</h2></div>
-    ${PF.table(['ID','РЎСѓРјРјР°','РЎС‚Р°С‚СѓСЃ','РџСЂРёС‡РёРЅР° / РџСЂРёРјРµС‡Р°РЅРёРµ','РђРґРјРёРЅ','РЎРѕР·РґР°РЅ'], list.map((d) => `
+  v.innerHTML = `<div class="card form-card"><div class="panel-t"><h2>Пополнение баланса</h2>
+    <div class="row"><button class="ghost" onclick="render()">Отмена</button><button class="ghost" onclick="renderDeposits()">Обновить</button></div></div>
+    <p style="margin-bottom:12px;color:var(--muted);font-size:13px">Адрес TRC-20: <b class="mono" style="color:var(--accent)">${addr}</b></p>
+    <label>Сумма (USD)<input id="depAmount" placeholder="50"></label>
+    <label>Tx hash (опционально)<input id="depTx" placeholder="0x..."></label>
+    <div class="row"><button onclick="submitDeposit()">Создать заявку</button>
+    <button class="ghost" onclick="render()">Отмена</button></div>
+    <p class="sub" style="margin-top:14px;margin-bottom:0">Минимальная сумма пополнения $50.</p></div>
+  <div class="card"><div class="panel-t"><h2>Архив пополнений (${list.length})</h2></div>
+    ${PF.table(['ID','Сумма','Статус','Причина / Примечание','Админ','Создан'], list.map((d) => `
       <tr><td class="mono">${d.id.slice(-8)}</td><td>${PF.money(d.amount)}</td><td class="mono">${d.status}</td>
       <td>${PF.esc(d.adminNote || '')}</td><td class="mono">${PF.esc(d.processedBy || '')} ${d.processedAt ? ' / ' + PF.dt(d.processedAt) : ''}</td><td>${PF.dt(d.createdAt)}</td></tr>`))}</div>`;
 }
@@ -225,7 +225,7 @@ async function submitDeposit() {
   const tx = document.getElementById('depTx').value.trim() || undefined;
   try {
     await PF.api('/trader/me/deposits', { method: 'POST', body: JSON.stringify({ amount, txHash: tx }) });
-    PF.toast('Р—Р°СЏРІРєР° СЃРѕР·РґР°РЅР°'); renderDeposits();
+    PF.toast('Заявка создана'); renderDeposits();
   } catch (e) { alert(e.message); }
 }
 
@@ -236,7 +236,7 @@ async function saveLimits() {
   const perDay = Number(document.getElementById('limitPerDay')?.value || 0);
   const cooldown = Number(document.getElementById('limitCooldown')?.value || 0);
   await PF.api('/trader/me', { method: 'PATCH', body: JSON.stringify({ minOrderAmount: min, maxOrderAmount: max, maxConcurrentOrders: conc, dealsPerDay: perDay, dealCooldownSeconds: cooldown }) });
-  PF.toast('Р›РёРјРёС‚С‹ СЃРѕС…СЂР°РЅРµРЅС‹'); render();
+  PF.toast('Лимиты сохранены'); render();
 }
 </script>
 </body>
