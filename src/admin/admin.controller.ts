@@ -35,18 +35,32 @@ const UpdateMerchantSchema = z.object({
   status: z.enum(['ACTIVE', 'SUSPENDED', 'BLOCKED']).optional(),
   feePercent: z.number().min(0).max(50).optional(),
   webhookUrl: z.string().url().nullable().optional(),
+  password: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/[A-Za-z]/, 'Password must contain a letter')
+    .regex(/[0-9]/, 'Password must contain a digit')
+    .optional(),
 });
 
-const UpdateTraderSchema = z.object({
-  status: z.enum(['ACTIVE', 'SUSPENDED', 'BLOCKED']).optional(),
-  isOnline: z.boolean().optional(),
-  methodCard: z.boolean().optional(),
-  methodSbp: z.boolean().optional(),
-  feePercent: z.number().min(0).max(50).optional(),
-  minOrderAmount: z.number().positive().optional(),
-  maxOrderAmount: z.number().positive().optional(),
-  maxConcurrentOrders: z.number().int().min(1).max(100).optional(),
-});
+  const UpdateTraderSchema = z.object({
+    status: z.enum(['ACTIVE', 'SUSPENDED', 'BLOCKED']).optional(),
+    isOnline: z.boolean().optional(),
+    methodCard: z.boolean().optional(),
+    methodSbp: z.boolean().optional(),
+    feePercent: z.number().min(0).max(50).optional(),
+    minOrderAmount: z.number().positive().optional(),
+    maxOrderAmount: z.number().positive().optional(),
+    maxConcurrentOrders: z.number().int().min(1).max(100).optional(),
+    password: z
+      .string()
+      .min(8)
+      .max(128)
+      .regex(/[A-Za-z]/, 'Password must contain a letter')
+      .regex(/[0-9]/, 'Password must contain a digit')
+      .optional(),
+  });
 
 const BalanceAdjustSchema = z.object({
   partyType: z.enum(['MERCHANT', 'TRADER']),
@@ -77,19 +91,34 @@ export class AdminController {
 
   private CreateTraderSchema = z.object({
     email: z.string().email(),
-    password: z.string().min(6),
+    password: z
+      .string()
+      .min(8)
+      .max(128)
+      .regex(/[A-Za-z]/, 'Password must contain a letter')
+      .regex(/[0-9]/, 'Password must contain a digit'),
     displayName: z.string().min(2).max(120),
   });
 
   private CreateMerchantSchema = z.object({
     name: z.string().min(2).max(120),
     email: z.string().email(),
-    password: z.string().min(6),
+    password: z
+      .string()
+      .min(8)
+      .max(128)
+      .regex(/[A-Za-z]/, 'Password must contain a letter')
+      .regex(/[0-9]/, 'Password must contain a digit'),
   });
 
   private CreateAdminSchema = z.object({
     email: z.string().email(),
-    password: z.string().min(6),
+    password: z
+      .string()
+      .min(8)
+      .max(128)
+      .regex(/[A-Za-z]/, 'Password must contain a letter')
+      .regex(/[0-9]/, 'Password must contain a digit'),
     name: z.string().max(120).optional(),
   });
 
@@ -166,6 +195,7 @@ export class AdminController {
     if (dto.status) data.status = dto.status;
     if (dto.feePercent !== undefined) data.feePercent = new Prisma.Decimal(dto.feePercent);
     if (dto.webhookUrl !== undefined) data.webhookUrl = dto.webhookUrl;
+    if (dto.password !== undefined) data.passwordHash = await bcrypt.hash(dto.password, 10);
     const m = await this.prisma.merchant.update({ where: { id }, data });
     const { passwordHash: _p, callbackSecretEncrypted: _c, ...rest } = m;
     return rest;
@@ -212,6 +242,7 @@ export class AdminController {
     if (dto.minOrderAmount !== undefined) data.minOrderAmount = new Prisma.Decimal(dto.minOrderAmount);
     if (dto.maxOrderAmount !== undefined) data.maxOrderAmount = new Prisma.Decimal(dto.maxOrderAmount);
     if (dto.maxConcurrentOrders !== undefined) data.maxConcurrentOrders = dto.maxConcurrentOrders;
+    if (dto.password !== undefined) data.passwordHash = await bcrypt.hash(dto.password, 10);
     const t = await this.prisma.trader.update({ where: { id }, data });
     const { passwordHash: _p, ...rest } = t;
     return rest;
